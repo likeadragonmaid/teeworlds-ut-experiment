@@ -1,10 +1,10 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#include "huffman.h"
-#include <algorithm>
 #include <base/system.h>
+#include "huffman.h"
 
-const unsigned CHuffman::ms_aFreqTable[HUFFMAN_MAX_SYMBOLS] = {
+
+static const unsigned gs_aFreqTable[256 + 1] = {
 	1 << 30,4545,2657,431,1950,919,444,482,2244,617,838,542,715,1814,304,240,754,212,647,186,
 	283,131,146,166,543,164,167,136,179,859,363,113,157,154,204,108,137,180,202,176,
 	872,404,168,134,151,111,113,109,120,126,129,100,41,20,16,22,18,18,17,19,
@@ -22,13 +22,8 @@ const unsigned CHuffman::ms_aFreqTable[HUFFMAN_MAX_SYMBOLS] = {
 struct CHuffmanConstructNode
 {
 	unsigned short m_NodeId;
-	int m_Frequency;
+ 	int m_Frequency;
 };
-
-bool CompareNodesByFrequencyDesc(const CHuffmanConstructNode *pNode1, const CHuffmanConstructNode *pNode2)
-{
-	return pNode2->m_Frequency < pNode1->m_Frequency;
-}
 
 void CHuffman::Setbits_r(CNode *pNode, int Bits, unsigned Depth)
 {
@@ -41,6 +36,29 @@ void CHuffman::Setbits_r(CNode *pNode, int Bits, unsigned Depth)
 	{
 		pNode->m_Bits = Bits;
 		pNode->m_NumBits = Depth;
+	}
+}
+
+// TODO: this should be something faster, but it's enough for now
+static void BubbleSort(CHuffmanConstructNode **ppList, int Size)
+{
+	int Changed = 1;
+	CHuffmanConstructNode *pTemp;
+
+	while(Changed)
+	{
+		Changed = 0;
+		for(int i = 0; i < Size-1; i++)
+		{
+			if(ppList[i]->m_Frequency < ppList[i+1]->m_Frequency)
+			{
+				pTemp = ppList[i];
+				ppList[i] = ppList[i+1];
+				ppList[i+1] = pTemp;
+				Changed = 1;
+			}
+		}
+		Size--;
 	}
 }
 
@@ -72,7 +90,8 @@ void CHuffman::ConstructTree(const unsigned *pFrequencies)
 	// construct the table
 	while(NumNodesLeft > 1)
 	{
-		std::stable_sort(apNodesLeft, apNodesLeft + NumNodesLeft, CompareNodesByFrequencyDesc);
+		// we can't rely on stdlib's qsort for this, it can generate different results on different implementations
+		BubbleSort(apNodesLeft, NumNodesLeft);
 
 		m_aNodes[m_NumNodes].m_NumBits = 0;
 		m_aNodes[m_NumNodes].m_aLeafs[0] = apNodesLeft[NumNodesLeft-1]->m_NodeId;
@@ -94,12 +113,11 @@ void CHuffman::ConstructTree(const unsigned *pFrequencies)
 void CHuffman::Init(const unsigned *pFrequencies)
 {
 	// make sure to cleanout every thing
-	mem_zero(m_aNodes, sizeof(m_aNodes));
-	mem_zero(m_apDecodeLut, sizeof(m_apDecodeLut));
-	m_pStartNode = 0x0;
-	m_NumNodes = 0;
+	mem_zero(this, sizeof(*this));
 
 	// construct the tree
+	if(!pFrequencies)
+		pFrequencies = gs_aFreqTable;
 	ConstructTree(pFrequencies);
 
 	// build decode LUT
@@ -130,7 +148,7 @@ void CHuffman::Init(const unsigned *pFrequencies)
 }
 
 //***************************************************************
-int CHuffman::Compress(const void *pInput, int InputSize, void *pOutput, int OutputSize) const
+int CHuffman::Compress(const void *pInput, int InputSize, void *pOutput, int OutputSize)
 {
 	// this macro loads a symbol for a byte into bits and bitcount
 #define HUFFMAN_MACRO_LOADSYMBOL(Sym) \
@@ -197,7 +215,7 @@ int CHuffman::Compress(const void *pInput, int InputSize, void *pOutput, int Out
 }
 
 //***************************************************************
-int CHuffman::Decompress(const void *pInput, int InputSize, void *pOutput, int OutputSize) const
+int CHuffman::Decompress(const void *pInput, int InputSize, void *pOutput, int OutputSize)
 {
 	// setup buffer pointers
 	unsigned char *pDst = (unsigned char *)pOutput;
@@ -208,10 +226,10 @@ int CHuffman::Decompress(const void *pInput, int InputSize, void *pOutput, int O
 	unsigned Bits = 0;
 	unsigned Bitcount = 0;
 
-	const CNode *pEof = &m_aNodes[HUFFMAN_EOF_SYMBOL];
-	const CNode *pNode = 0;
+	CNode *pEof = &m_aNodes[HUFFMAN_EOF_SYMBOL];
+	CNode *pNode = 0;
 
-	while(true)
+	while(1)
 	{
 		// {A} try to load a node now, this will reduce dependency at location {D}
 		pNode = 0;
@@ -246,7 +264,7 @@ int CHuffman::Decompress(const void *pInput, int InputSize, void *pOutput, int O
 			Bitcount -= HUFFMAN_LUTBITS;
 
 			// walk the tree bit by bit
-			while(true)
+			while(1)
 			{
 				// traverse tree
 				pNode = &m_aNodes[pNode->m_aLeafs[Bits&1]];

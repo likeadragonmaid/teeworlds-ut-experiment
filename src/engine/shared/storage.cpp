@@ -46,7 +46,8 @@ public:
 		FindDataDir();
 
 		// get currentdir
-		fs_getcwd(m_aCurrentDir, sizeof(m_aCurrentDir));
+		if(!fs_getcwd(m_aCurrentDir, sizeof(m_aCurrentDir)))
+			m_aCurrentDir[0] = 0;
 
 		// load paths from storage.cfg
 		LoadPaths();
@@ -89,14 +90,14 @@ public:
 	void LoadPaths()
 	{
 		// check current directory
-		IOHANDLE File = io_open("storage.cfg", IOFLAG_READ | IOFLAG_SKIP_BOM);
+		IOHANDLE File = io_open("storage.cfg", IOFLAG_READ);
 		if(!File)
 		{
 			// check usable path in argv[0]
 			char aBuffer[IO_MAX_PATH_LENGTH];
 			str_copy(aBuffer, m_aAppDir, sizeof(aBuffer));
 			str_append(aBuffer, "/storage.cfg", sizeof(aBuffer));
-			File = io_open(aBuffer, IOFLAG_READ | IOFLAG_SKIP_BOM);
+			File = io_open(aBuffer, IOFLAG_READ);
 			if(!File)
 			{
 				dbg_msg("storage", "couldn't open storage.cfg");
@@ -104,9 +105,10 @@ public:
 			}
 		}
 
+		char *pLine;
 		CLineReader LineReader;
 		LineReader.Init(File);
-		const char *pLine;
+
 		while((pLine = LineReader.Get()))
 		{
 			const char *pLineWithoutPrefix = str_startswith(pLine, "add_path ");
@@ -305,22 +307,6 @@ public:
 		}
 	}
 
-	virtual void ListDirectoryFileInfo(int Type, const char *pPath, FS_LISTDIR_CALLBACK_FILEINFO pfnCallback, void *pUser)
-	{
-		char aBuffer[IO_MAX_PATH_LENGTH];
-		if(Type == TYPE_ALL)
-		{
-			// list all available directories
-			for(int i = 0; i < m_NumPaths; ++i)
-				fs_listdir_fileinfo(GetPath(i, pPath, aBuffer, sizeof(aBuffer)), pfnCallback, i, pUser);
-		}
-		else if(Type >= 0 && Type < m_NumPaths)
-		{
-			// list wanted directory
-			fs_listdir_fileinfo(GetPath(Type, pPath, aBuffer, sizeof(aBuffer)), pfnCallback, Type, pUser);
-		}
-	}
-
 	const char *GetPath(int Type, const char *pDir, char *pBuffer, unsigned BufferSize)
 	{
 		str_format(pBuffer, BufferSize, "%s%s%s", m_aaStoragePaths[Type], !m_aaStoragePaths[Type][0] ? "" : "/", pDir);
@@ -407,7 +393,7 @@ public:
 
 	char *ReadFileStr(const char *pFilename, int Type)
 	{
-		IOHANDLE File = OpenFile(pFilename, IOFLAG_READ | IOFLAG_SKIP_BOM, Type);
+		IOHANDLE File = OpenFile(pFilename, IOFLAG_READ, Type);
 		if(!File)
 		{
 			return 0;
@@ -586,7 +572,7 @@ public:
 			if(Bytes <= 0)
 				break;
 			sha256_update(&Sha256Ctx, aBuffer, Bytes);
-			Crc = crc32(Crc, aBuffer, Bytes);
+			Crc = crc32(Crc, aBuffer, Bytes); // ignore_convention
 			Size += Bytes;
 		}
 
@@ -596,14 +582,6 @@ public:
 		*pCrc = Crc;
 		*pSize = Size;
 		return true;
-	}
-
-	virtual bool GetFileTime(const char *pFilename, int StorageType, time_t *pCreated, time_t *pModified)
-	{
-		char aBuf[IO_MAX_PATH_LENGTH];
-		GetCompletePath(StorageType, pFilename, aBuf, sizeof(aBuf));
-
-		return !fs_file_time(aBuf, pCreated, pModified);
 	}
 
 	static IStorage *Create(const char *pApplicationName, int StorageType, int NumArgs, const char **ppArguments)

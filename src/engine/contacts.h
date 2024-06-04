@@ -1,7 +1,7 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#ifndef ENGINE_CONTACTS_H
-#define ENGINE_CONTACTS_H
+#ifndef ENGINE_FRIENDS_H
+#define ENGINE_FRIENDS_H
 
 #include <engine/shared/protocol.h>
 
@@ -9,8 +9,8 @@
 
 struct CContactInfo
 {
-	char m_aName[MAX_NAME_ARRAY_SIZE];
-	char m_aClan[MAX_CLAN_ARRAY_SIZE];
+	char m_aName[MAX_NAME_LENGTH];
+	char m_aClan[MAX_CLAN_LENGTH];
 	unsigned m_NameHash;
 	unsigned m_ClanHash;
 

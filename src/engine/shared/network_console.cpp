@@ -66,7 +66,7 @@ int CNetConsole::AcceptClient(NETSOCKET Socket, const NETADDR *pAddr)
 			FreeSlot = i;
 		if(m_aSlots[i].m_Connection.State() != NET_CONNSTATE_OFFLINE)
 		{
-			if(net_addr_comp(pAddr, m_aSlots[i].m_Connection.PeerAddress(), true) == 0)
+			if(net_addr_comp(pAddr, m_aSlots[i].m_Connection.PeerAddress()) == 0)
 			{
 				str_copy(aError, "only one client per IP allowed", sizeof(aError));
 				break;
@@ -148,9 +148,4 @@ int CNetConsole::Send(int ClientID, const char *pLine)
 		return m_aSlots[ClientID].m_Connection.Send(pLine);
 	else
 		return -1;
-}
-
-void CNetConsole::SetLingerState(int State)
-{
-	net_tcp_set_linger(m_Socket, State);
 }

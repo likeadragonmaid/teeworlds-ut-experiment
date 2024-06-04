@@ -16,7 +16,7 @@ IContactList::IContactList()
 
 const CContactInfo *IContactList::GetContact(int Index) const
 {
-	return &m_aContacts[maximum(0, Index%m_NumContacts)];
+	return &m_aContacts[max(0, Index%m_NumContacts)];
 }
 
 int IContactList::GetContactState(const char *pName, const char *pClan) const
@@ -67,8 +67,8 @@ void IContactList::AddContact(const char *pName, const char *pClan)
 			return;
 	}
 
-	str_utf8_copy_num(m_aContacts[m_NumContacts].m_aName, pName, sizeof(m_aContacts[m_NumContacts].m_aName), MAX_NAME_LENGTH);
-	str_utf8_copy_num(m_aContacts[m_NumContacts].m_aClan, pClan, sizeof(m_aContacts[m_NumContacts].m_aClan), MAX_CLAN_LENGTH);
+	str_copy(m_aContacts[m_NumContacts].m_aName, pName, sizeof(m_aContacts[m_NumContacts].m_aName));
+	str_copy(m_aContacts[m_NumContacts].m_aClan, pClan, sizeof(m_aContacts[m_NumContacts].m_aClan));
 	m_aContacts[m_NumContacts].m_NameHash = NameHash;
 	m_aContacts[m_NumContacts].m_ClanHash = ClanHash;
 	++m_NumContacts;

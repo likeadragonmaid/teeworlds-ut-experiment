@@ -190,11 +190,13 @@ void CLayerQuads::GetSize(float *w, float *h) const
 	{
 		for(int p = 0; p < 5; p++)
 		{
-			*w = maximum(*w, fx2f(m_lQuads[i].m_aPoints[p].x));
-			*h = maximum(*h, fx2f(m_lQuads[i].m_aPoints[p].y));
+			*w = max(*w, fx2f(m_lQuads[i].m_aPoints[p].x));
+			*h = max(*h, fx2f(m_lQuads[i].m_aPoints[p].y));
 		}
 	}
 }
+
+extern int gs_SelectedPoints;
 
 int CLayerQuads::RenderProperties(CUIRect *pToolBox)
 {

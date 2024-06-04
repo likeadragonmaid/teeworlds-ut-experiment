@@ -19,8 +19,8 @@ public:
 	class CClient
 	{
 	public:
-		char m_aName[MAX_NAME_ARRAY_SIZE];
-		char m_aClan[MAX_CLAN_ARRAY_SIZE];
+		char m_aName[MAX_NAME_LENGTH];
+		char m_aClan[MAX_CLAN_LENGTH];
 		int m_Country;
 		int m_Score;
 		int m_PlayerType;
@@ -82,10 +82,7 @@ public:
 	int m_Country;
 	int m_ServerLevel;
 	char m_aGametype[MAX_GAMETYPES][16];
-	char m_aGametypeExclusive[MAX_GAMETYPES];
 	char m_aAddress[NETADDR_MAXSTRSIZE];
-
-	void Set(const CServerFilterInfo *pSrc);
 
 	void ToggleLevel(int Level)
 	{
@@ -115,7 +112,7 @@ public:
 		SORT_GAMETYPE - Sort by game type. DM, TDM etc.
 		SORT_NUMPLAYERS - Sort after how many players there are on the server.
 	*/
-	enum {
+	enum{
 		SORT_NAME=0,
 		SORT_PING,
 		SORT_MAP,
@@ -133,9 +130,6 @@ public:
 
 		REFRESHFLAG_INTERNET=1,
 		REFRESHFLAG_LAN=2,
-
-		LAN_PORT_BEGIN = 8303,
-		LAN_PORT_END = 8310,
 
 		FLAG_PASSWORD=1,
 		FLAG_PURE=2,
@@ -160,7 +154,6 @@ public:
 	virtual void Refresh(int RefreshFlags) = 0;
 	virtual bool IsRefreshing() const = 0;
 	virtual bool IsRefreshingMasters() const = 0;
-	virtual bool WasUpdated(bool Purge) = 0;
 	virtual int LoadingProgression() const = 0;
 
 	virtual int NumServers() const = 0;

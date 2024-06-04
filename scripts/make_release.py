@@ -3,7 +3,7 @@ from distutils.dir_util import copy_tree
 os.chdir(os.path.dirname(os.path.realpath(sys.argv[0])) + "/..")
 import twlib
 
-arguments = optparse.OptionParser(usage="usage: %prog VERSION PLATFORM [options]\n\nVERSION  - Version number\nPLATFORM - Target platform (f.e. linux_x86, linux_x86_64, macos, src, win32, win64)")
+arguments = optparse.OptionParser(usage="usage: %prog VERSION PLATFORM [options]\n\nVERSION  - Version number\nPLATFORM - Target platform (f.e. linux_x86, linux_x86_64, osx, src, win32, win64)")
 arguments.add_option("-l", "--url-languages", default = "http://github.com/teeworlds/teeworlds-translation/archive/master.zip", help = "URL from which the teeworlds language files will be downloaded")
 arguments.add_option("-m", "--url-maps", default = "http://github.com/teeworlds/teeworlds-maps/archive/master.zip", help = "URL from which the teeworlds maps files will be downloaded")
 arguments.add_option("-s", "--source-dir", help = "Source directory which is used for building the package")
@@ -18,7 +18,7 @@ if options.source_dir != None:
 		exit(1)
 	os.chdir(options.source_dir)
 
-valid_platforms = ["win32", "win64", "macos", "linux_x86", "linux_x86_64", "src"]
+valid_platforms = ["win32", "win64", "osx", "linux_x86", "linux_x86_64", "src"]
 
 name = "teeworlds"
 version = sys.argv[1]
@@ -45,7 +45,7 @@ elif platform == 'win32' or platform == 'win64':
 	exe_ext = ".exe"
 	use_zip = 1
 	use_gz = 0
-elif platform == 'macos':
+elif platform == 'osx':
 	use_dmg = 1
 	use_gz = 0
 	use_bundle = 1
@@ -142,7 +142,7 @@ if include_data and not use_bundle:
 if include_exe and not use_bundle:
 	shutil.copy(source_package_dir+name+exe_ext, package_dir)
 	shutil.copy(source_package_dir+name+"_srv"+exe_ext, package_dir)
-
+	
 if include_src:
 	for p in ["src", "scripts", "datasrc", "other", "objs"]:
 		os.mkdir(os.path.join(package_dir, p))

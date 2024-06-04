@@ -20,6 +20,9 @@ protected:
 	float m_GameIntraTick;
 	float m_GameTickTime;
 
+	int m_CurMenuTick;
+	int64 m_MenuStartTime;
+
 	int m_PredTick;
 	float m_PredIntraTick;
 
@@ -62,6 +65,7 @@ public:
 	// tick time access
 	inline int PrevGameTick() const { return m_PrevGameTick; }
 	inline int GameTick() const { return m_CurGameTick; }
+	inline int MenuTick() const { return m_CurMenuTick; }
 	inline int PredGameTick() const { return m_PredTick; }
 	inline float IntraGameTick() const { return m_GameIntraTick; }
 	inline float PredIntraGameTick() const { return m_PredIntraTick; }
@@ -79,23 +83,20 @@ public:
 	virtual const char *DemoPlayer_Play(const char *pFilename, int StorageType) = 0;
 	virtual void DemoRecorder_Start(const char *pFilename, bool WithTimestamp) = 0;
 	virtual void DemoRecorder_HandleAutoStart() = 0;
-	virtual void DemoRecorder_Stop(bool ErrorIfNotRecording = false) = 0;
+	virtual void DemoRecorder_Stop() = 0;
 	virtual void RecordGameMessage(bool State) = 0;
 	virtual void AutoStatScreenshot_Start() = 0;
 	virtual void AutoScreenshot_Start() = 0;
 	virtual void ServerBrowserUpdate() = 0;
-
+	
 	// gfx
 	virtual void SwitchWindowScreen(int Index) = 0;
-	virtual bool ToggleFullscreen() = 0;
+	virtual void ToggleFullscreen() = 0;
 	virtual void ToggleWindowBordered() = 0;
 	virtual void ToggleWindowVSync() = 0;
 
 	// networking
 	virtual void EnterGame() = 0;
-
-	// network stats
-	virtual int GetInputtimeMarginStabilityScore() = 0;
 
 	//
 	virtual const char *GetCurrentMapName() const = 0;
@@ -129,7 +130,7 @@ public:
 	virtual const void *SnapFindItem(int SnapID, int Type, int ID) const = 0;
 	virtual const void *SnapGetItem(int SnapID, int Index, CSnapItem *pItem) const = 0;
 	virtual void SnapInvalidateItem(int SnapID, int Index) = 0;
-
+	
 	virtual void *SnapNewItem(int Type, int ID, int Size) = 0;
 
 	virtual void SnapSetStaticsize(int ItemType, int Size) = 0;

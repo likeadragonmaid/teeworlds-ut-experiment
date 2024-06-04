@@ -25,7 +25,7 @@ void CCountryFlags::LoadCountryflagsIndexfile()
 		return;
 	}
 	int FileSize = (int)io_length(File);
-	char *pFileData = (char *)mem_alloc(FileSize);
+	char *pFileData = (char *)mem_alloc(FileSize, 1);
 	io_read(File, pFileData, FileSize);
 	io_close(File);
 
@@ -127,12 +127,12 @@ void CCountryFlags::LoadCountryflagsIndexfile()
 	else
 		mem_zero(m_CodeIndexLUT, sizeof(m_CodeIndexLUT));
 	for(int i = 0; i < m_aCountryFlags.size(); ++i)
-		m_CodeIndexLUT[maximum(0, (m_aCountryFlags[i].m_CountryCode-CODE_LB)%CODE_RANGE)] = i;
+		m_CodeIndexLUT[max(0, (m_aCountryFlags[i].m_CountryCode-CODE_LB)%CODE_RANGE)] = i;
 }
 
 int CCountryFlags::GetInitAmount() const
 {
-	return 10;
+	return 15;
 }
 
 void CCountryFlags::OnInit()
@@ -140,6 +140,7 @@ void CCountryFlags::OnInit()
 	// load country flags
 	m_aCountryFlags.clear();
 	LoadCountryflagsIndexfile();
+	m_pClient->m_pMenus->RenderLoading(5);
 	if(!m_aCountryFlags.size())
 	{
 		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "countryflags", "failed to load country flags. folder='countryflags/'");
@@ -159,7 +160,7 @@ int CCountryFlags::Num() const
 
 const CCountryFlags::CCountryFlag *CCountryFlags::GetByCountryCode(int CountryCode) const
 {
-	return GetByIndex(m_CodeIndexLUT[maximum(0, (CountryCode-CODE_LB)%CODE_RANGE)]);
+	return GetByIndex(m_CodeIndexLUT[max(0, (CountryCode-CODE_LB)%CODE_RANGE)]);
 }
 
 const CCountryFlags::CCountryFlag *CCountryFlags::GetByIndex(int Index, bool SkipBlocked) const
@@ -171,7 +172,7 @@ const CCountryFlags::CCountryFlag *CCountryFlags::GetByIndex(int Index, bool Ski
 				if(!Index--)
 					return &m_aCountryFlags[i];
 	}
-	return &m_aCountryFlags[maximum(0, Index%m_aCountryFlags.size())];
+	return &m_aCountryFlags[max(0, Index%m_aCountryFlags.size())];
 }
 
 void CCountryFlags::Render(int CountryCode, const vec4 *pColor, float x, float y, float w, float h, bool AllowBlocked)
@@ -190,11 +191,9 @@ void CCountryFlags::Render(int CountryCode, const vec4 *pColor, float x, float y
 	}
 	else
 	{
-		static CTextCursor s_Cursor(10.0f);
-		s_Cursor.Reset();
-		s_Cursor.MoveTo(x+w/2, y+h/2);
-		s_Cursor.m_MaxLines = w;
-		s_Cursor.m_Align = TEXTALIGN_MC;
-		TextRender()->TextOutlined(&s_Cursor, pFlag->m_aCountryCodeString, -1);
+		CTextCursor Cursor;
+		TextRender()->SetCursor(&Cursor, x, y, 10.0f, TEXTFLAG_RENDER|TEXTFLAG_STOP_AT_END);
+		Cursor.m_LineWidth = w;
+		TextRender()->TextEx(&Cursor, pFlag->m_aCountryCodeString, -1);
 	}
 }

@@ -9,7 +9,6 @@
 #include <game/layers.h>
 #include <game/gamecore.h>
 #include "render.h"
-#include "ui.h"
 
 class CGameClient : public IGameClient
 {
@@ -73,8 +72,6 @@ class CGameClient : public IGameClient
 
 	void EvolveCharacter(CNetObj_Character *pCharacter, int Tick);
 
-	void LoadFonts();
-
 public:
 	IKernel *Kernel() { return IInterface::Kernel(); }
 	IEngine *Engine() const { return m_pEngine; }
@@ -91,15 +88,15 @@ public:
 	class IDemoRecorder *DemoRecorder() const { return m_pDemoRecorder; }
 	class IServerBrowser *ServerBrowser() const { return m_pServerBrowser; }
 	class CRenderTools *RenderTools() { return &m_RenderTools; }
-	class CLayers *Layers() { return &m_Layers; }
-	class CCollision *Collision() { return &m_Collision; }
+	class CLayers *Layers() { return &m_Layers; };
+	class CCollision *Collision() { return &m_Collision; };
 	class IEditor *Editor() { return m_pEditor; }
 	class IFriends *Friends() { return m_pFriends; }
 	class IBlacklist *Blacklist() { return m_pBlacklist; }
 
-	const char *NetobjFailedOn() { return m_NetObjHandler.FailedObjOn(); }
-	int NetobjNumFailures() { return m_NetObjHandler.NumObjFailures(); }
-	const char *NetmsgFailedOn() { return m_NetObjHandler.FailedMsgOn(); }
+	const char *NetobjFailedOn() { return m_NetObjHandler.FailedObjOn(); };
+	int NetobjNumFailures() { return m_NetObjHandler.NumObjFailures(); };
+	const char *NetmsgFailedOn() { return m_NetObjHandler.FailedMsgOn(); };
 
 	bool m_SuppressEvents;
 
@@ -119,27 +116,9 @@ public:
 
 	vec2 m_LocalCharacterPos;
 
-	// Whether we should use/render predicted entities. Depends on client
-	// and game state.
-	bool ShouldUsePredicted() const;
-
-	// Whether we should use/render predictions for a specific `ClientID`.
-	// Should check `ShouldUsePredicted` before checking this.
-	bool ShouldUsePredictedChar(int ClientID) const;
-
-	// Replaces `pPrevChar`, `pPlayerChar`, and `IntraTick` with their predicted
-	// counterparts for `ClientID`. Should check `ShouldUsePredictedChar`
-	// before using this.
-	void UsePredictedChar(
-		CNetObj_Character *pPrevChar,
-		CNetObj_Character *pPlayerChar,
-		float *IntraTick,
-		int ClientID
-	) const;
-
-	vec2 GetCharPos(int ClientID, bool Predicted = false) const;
-
-	// ---
+	// predicted players
+	CCharacterCore m_PredictedPrevChar;
+	CCharacterCore m_PredictedChar;
 
 	struct CPlayerInfoItem
 	{
@@ -200,10 +179,10 @@ public:
 	// client data
 	struct CClientData
 	{
-		char m_aName[MAX_NAME_ARRAY_SIZE];
-		char m_aClan[MAX_CLAN_ARRAY_SIZE];
+		char m_aName[MAX_NAME_LENGTH];
+		char m_aClan[MAX_CLAN_LENGTH];
 		int m_Country;
-		char m_aaSkinPartNames[NUM_SKINPARTS][MAX_SKIN_ARRAY_SIZE];
+		char m_aaSkinPartNames[NUM_SKINPARTS][24];
 		int m_aUseCustomColors[NUM_SKINPARTS];
 		int m_aSkinPartColors[NUM_SKINPARTS];
 		int m_SkinPartIDs[NUM_SKINPARTS];
@@ -211,12 +190,9 @@ public:
 		int m_Emoticon;
 		int m_EmoticonStart;
 		CCharacterCore m_Predicted;
-		CCharacterCore m_PrevPredicted;
 
 		CTeeRenderInfo m_SkinInfo; // this is what the server reports
 		CTeeRenderInfo m_RenderInfo; // this is what we use
-
-		CNetObj_Character m_Evolved;
 
 		float m_Angle;
 		bool m_Active;
@@ -231,10 +207,10 @@ public:
 	CClientData m_aClients[MAX_CLIENTS];
 	int m_LocalClientID;
 	int m_TeamCooldownTick;
+	bool m_MuteServerBroadcast;
 	float m_TeamChangeTime;
 	bool m_IsXmasDay;
 	float m_LastSkinChangeTime;
-	int m_IdentityState;
 	bool m_IsEasterDay;
 	bool m_InitComplete;
 
@@ -293,14 +269,11 @@ public:
 	virtual const char *NetVersionHashReal() const;
 	virtual int ClientVersion() const;
 	void GetPlayerLabel(char* aBuf, int BufferSize, int ClientID, const char* ClientName);
-	void StartRendering();
-
 	bool IsXmas() const;
 	bool IsEaster() const;
+	void StartRendering();
+
 	int RacePrecision() const { return m_Snap.m_pGameDataRace ? m_Snap.m_pGameDataRace->m_Precision : 3; }
-	bool IsWorldPaused() const { return m_Snap.m_pGameData && (m_Snap.m_pGameData->m_GameStateFlags&(GAMESTATEFLAG_PAUSED|GAMESTATEFLAG_ROUNDOVER|GAMESTATEFLAG_GAMEOVER)); }
-	bool IsDemoPlaybackPaused() const;
-	float GetAnimationPlaybackSpeed() const;
 
 	//
 	void DoEnterMessage(const char *pName, int ClientID, int Team);

@@ -3,8 +3,6 @@
 #ifndef ENGINE_SERVER_SERVER_H
 #define ENGINE_SERVER_SERVER_H
 
-#include <base/tl/sorted_array.h>
-
 #include <engine/server.h>
 #include <engine/shared/memheap.h>
 
@@ -125,8 +123,8 @@ public:
 		CInput m_aInputs[200]; // TODO: handle input better
 		int m_CurrentInput;
 
-		char m_aName[MAX_NAME_ARRAY_SIZE];
-		char m_aClan[MAX_CLAN_ARRAY_SIZE];
+		char m_aName[MAX_NAME_LENGTH];
+		char m_aClan[MAX_CLAN_LENGTH];
 		int m_Version;
 		int m_Country;
 		int m_Score;
@@ -137,7 +135,7 @@ public:
 		bool m_NoRconNote;
 		bool m_Quitting;
 		const IConsole::CCommandInfo *m_pRconCmdToSend;
-		int m_MapListEntryToSend;
+		const CMapListEntry *m_pMapListEntryToSend;
 
 		void Reset();
 	};
@@ -152,15 +150,15 @@ public:
 	CServerBan m_ServerBan;
 
 	IEngineMap *m_pMap;
-	IMapChecker *m_pMapChecker;
 
 	int64 m_GameStartTime;
-	bool m_RunServer;
-	bool m_MapReload;
+	int m_RunServer;
+	int m_MapReload;
 	int m_RconClientID;
 	int m_RconAuthLevel;
 	int m_PrintCBIndex;
-	char m_aShutdownReason[128];
+
+	int64 m_Lastheartbeat;
 
 	// map
 	enum
@@ -174,23 +172,31 @@ public:
 	int m_CurrentMapSize;
 	int m_MapChunksPerRequest;
 
-	// maplist
+	//maplist
 	struct CMapListEntry
 	{
+		CMapListEntry *m_pPrev;
+		CMapListEntry *m_pNext;
 		char m_aName[IConsole::TEMPMAP_NAME_LENGTH];
-
-		CMapListEntry() {}
-		CMapListEntry(const char *pName) { str_copy(m_aName, pName, sizeof(m_aName)); }
-		bool operator<(const CMapListEntry &Other) const { return str_comp_filenames(m_aName, Other.m_aName) < 0; }
 	};
 
-	sorted_array<CMapListEntry> m_lMaps;
+	struct CSubdirCallbackUserdata
+	{
+		CServer *m_pServer;
+		char m_aName[IConsole::TEMPMAP_NAME_LENGTH];
+	};
+
+	CHeap *m_pMapListHeap;
+	CMapListEntry *m_pLastMapEntry;
+	CMapListEntry *m_pFirstMapEntry;
+	int m_NumMapEntries;
 
 	int m_RconPasswordSet;
 	int m_GeneratedRconPassword;
 
 	CDemoRecorder m_DemoRecorder;
 	CRegister m_Register;
+	CMapChecker m_MapChecker;
 
 	CServer();
 
@@ -247,17 +253,14 @@ public:
 
 	void PumpNetwork();
 
-	virtual void ChangeMap(const char *pMap);
 	const char *GetMapName();
 	int LoadMap(const char *pMapName);
 
 	void InitRegister(CNetServer *pNetServer, IEngineMasterServer *pMasterServer, CConfig *pConfig, IConsole *pConsole);
-	void InitInterfaces(IKernel *pKernel);
+	void InitInterfaces(CConfig *pConfig, IConsole *pConsole, IGameServer *pGameServer, IEngineMap *pMap, IStorage *pStorage);
 	int Run();
-	void Free();
 
 	static int MapListEntryCallback(const char *pFilename, int IsDir, int DirType, void *pUser);
-	void InitMapList();
 
 	static void ConKick(IConsole::IResult *pResult, void *pUser);
 	static void ConStatus(IConsole::IResult *pResult, void *pUser);
@@ -274,7 +277,6 @@ public:
 	static void ConchainModCommandUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainConsoleOutputLevelUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainRconPasswordSet(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
-	static void ConchainMapUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	void RegisterCommands();
 

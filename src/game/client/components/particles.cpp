@@ -37,8 +37,18 @@ void CParticles::OnReset()
 
 void CParticles::Add(int Group, CParticle *pPart)
 {
-	if(m_pClient->IsWorldPaused() || m_pClient->IsDemoPlaybackPaused())
-		return;
+	if(Client()->State() == IClient::STATE_DEMOPLAYBACK)
+	{
+		const IDemoPlayer::CInfo *pInfo = DemoPlayer()->BaseInfo();
+		if(pInfo->m_Paused)
+			return;
+	}
+	else
+	{
+		if(m_pClient->m_Snap.m_pGameData && m_pClient->m_Snap.m_pGameData->m_GameStateFlags&GAMESTATEFLAG_PAUSED)
+			return;
+	}
+
 	if (m_FirstFree == -1)
 		return;
 
@@ -64,20 +74,17 @@ void CParticles::Add(int Group, CParticle *pPart)
 
 void CParticles::Update(float TimePassed)
 {
-	if(TimePassed <= 0.0f)
-		return;
+	static float FrictionFraction = 0;
+	FrictionFraction += TimePassed;
 
-	static float s_FrictionFraction = 0.0f;
-	s_FrictionFraction += TimePassed;
-
-	if(s_FrictionFraction > 2.0f) // safety messure
-		s_FrictionFraction = 0.0f;
+	if(FrictionFraction > 2.0f) // safty messure
+		FrictionFraction = 0;
 
 	int FrictionCount = 0;
-	while(s_FrictionFraction > 0.05f)
+	while(FrictionFraction > 0.05f)
 	{
 		FrictionCount++;
-		s_FrictionFraction -= 0.05f;
+		FrictionFraction -= 0.05f;
 	}
 
 	for(int g = 0; g < NUM_GROUPS; g++)
@@ -94,7 +101,7 @@ void CParticles::Update(float TimePassed)
 
 			// move the point
 			vec2 Vel = m_aParticles[i].m_Vel*TimePassed;
-			Collision()->MovePoint(&m_aParticles[i].m_Pos, &Vel, 0.1f+0.9f*random_float(), NULL);
+			Collision()->MovePoint(&m_aParticles[i].m_Pos, &Vel, 0.1f+0.9f*frandom(), NULL);
 			m_aParticles[i].m_Vel = Vel* (1.0f/TimePassed);
 
 			m_aParticles[i].m_Life += TimePassed;
@@ -130,9 +137,21 @@ void CParticles::OnRender()
 	if(Client()->State() < IClient::STATE_ONLINE)
 		return;
 
+	static int64 s_LastTime = 0;
 	int64 Now = time_get();
-	static int64 s_LastTime = Now;
-	Update((float)((Now-s_LastTime)/(double)time_freq()) * m_pClient->GetAnimationPlaybackSpeed());
+
+	if(Client()->State() == IClient::STATE_DEMOPLAYBACK)
+	{
+		const IDemoPlayer::CInfo *pInfo = DemoPlayer()->BaseInfo();
+		if(!pInfo->m_Paused)
+			Update((float)((Now-s_LastTime)/(double)time_freq())*pInfo->m_Speed);
+	}
+	else
+	{
+		if(m_pClient->m_Snap.m_pGameData && !(m_pClient->m_Snap.m_pGameData->m_GameStateFlags&GAMESTATEFLAG_PAUSED))
+			Update((float)((Now-s_LastTime)/(double)time_freq()));
+	}
+
 	s_LastTime = Now;
 }
 

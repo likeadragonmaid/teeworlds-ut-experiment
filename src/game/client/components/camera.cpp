@@ -25,7 +25,7 @@ CCamera::CCamera()
 	m_Positions[POS_DEMOS] = vec2(1500.0f, 500.0f);
 	m_Positions[POS_SETTINGS_GENERAL] = vec2(500.0f, 1000.0f);
 	m_Positions[POS_SETTINGS_PLAYER] = vec2(600.0f, 1000.0f);
-	m_Positions[POS_SETTINGS_TBD] = vec2(700.0f, 1000.0f);
+	m_Positions[POS_SETTINGS_TEE] = vec2(700.0f, 1000.0f);
 	m_Positions[POS_SETTINGS_CONTROLS] = vec2(800.0f, 1000.0f);
 	m_Positions[POS_SETTINGS_GRAPHICS] = vec2(900.0f, 1000.0f);
 	m_Positions[POS_SETTINGS_SOUND] = vec2(1000.0f, 1000.0f);
@@ -60,68 +60,41 @@ void CCamera::OnRender()
 				m_CamType = CAMTYPE_PLAYER;
 			}
 
-			float DeltaTime = Client()->RenderFrameTime();
-			static vec2 s_LastMousePos(0, 0);
-			static vec2 s_CurrentCameraOffset(0, 0);
-			static float s_SpeedBias = 0.5f;
+			vec2 CameraOffset(0, 0);
 
-			if(Config()->m_ClCameraSmoothness > 0)
-			{
-				float CameraSpeed = (1.0f - (Config()->m_ClCameraSmoothness / 100.0f)) * 9.5f + 0.5f;
-				float CameraStabilizingFactor = 1 + Config()->m_ClCameraStabilizing / 100.0f;
-
-				s_SpeedBias += CameraSpeed * DeltaTime;
-				if(Config()->m_ClDynamicCamera)
-				{
-					s_SpeedBias -= length(m_pClient->m_pControls->m_MousePos - s_LastMousePos) * log10f(CameraStabilizingFactor) * 0.02f;
-					s_SpeedBias = clamp(s_SpeedBias, 0.5f, CameraSpeed);
-				}
-				else
-				{
-					s_SpeedBias = maximum(5.0f, CameraSpeed); // make sure toggle back is fast
-				}
-			}
-
-			vec2 TargetCameraOffset(0, 0);
-			s_LastMousePos = m_pClient->m_pControls->m_MousePos;
-			float l = length(s_LastMousePos);
+			float l = length(m_pClient->m_pControls->m_MousePos);
 			if(Config()->m_ClDynamicCamera && l > 0.0001f) // make sure that this isn't 0
 			{
 				float DeadZone = Config()->m_ClMouseDeadzone;
 				float FollowFactor = Config()->m_ClMouseFollowfactor/100.0f;
-				float OffsetAmount = maximum(l-DeadZone, 0.0f) * FollowFactor;
+				float OffsetAmount = max(l-DeadZone, 0.0f) * FollowFactor;
 
-				TargetCameraOffset = normalize(m_pClient->m_pControls->m_MousePos)*OffsetAmount;
+				CameraOffset = normalize(m_pClient->m_pControls->m_MousePos)*OffsetAmount;
 			}
-			
-			if(Config()->m_ClCameraSmoothness > 0)
-				s_CurrentCameraOffset += (TargetCameraOffset - s_CurrentCameraOffset) * minimum(DeltaTime * s_SpeedBias, 1.0f);
-			else
-				s_CurrentCameraOffset = TargetCameraOffset;
-			
+
 			if(m_pClient->m_Snap.m_SpecInfo.m_Active)
-				m_Center = m_pClient->m_Snap.m_SpecInfo.m_Position + s_CurrentCameraOffset;
+				m_Center = m_pClient->m_Snap.m_SpecInfo.m_Position + CameraOffset;
 			else
-				m_Center = m_pClient->m_LocalCharacterPos + s_CurrentCameraOffset;
+				m_Center = m_pClient->m_LocalCharacterPos + CameraOffset;
 		}
 	}
 	else
 	{
 		m_Zoom = 0.7f;
-		static vec2 s_Dir = vec2(1.0f, 0.0f);
+		static vec2 Dir = vec2(1.0f, 0.0f);
 
 		if(distance(m_Center, m_RotationCenter) <= (float)Config()->m_ClRotationRadius+0.5f)
 		{
 			// do little rotation
 			float RotPerTick = 360.0f/(float)Config()->m_ClRotationSpeed * Client()->RenderFrameTime();
-			s_Dir = rotate(s_Dir, RotPerTick);
-			m_Center = m_RotationCenter + s_Dir * (float)Config()->m_ClRotationRadius;
+			Dir = rotate(Dir, RotPerTick);
+			m_Center = m_RotationCenter+Dir*(float)Config()->m_ClRotationRadius;
 		}
 		else
 		{
 			// positions for the animation
-			s_Dir = normalize(m_AnimationStartPos - m_RotationCenter);
-			vec2 TargetPos = m_RotationCenter + s_Dir * (float)Config()->m_ClRotationRadius;
+			Dir = normalize(m_AnimationStartPos - m_RotationCenter);
+			vec2 TargetPos = m_RotationCenter + Dir * (float)Config()->m_ClRotationRadius;
 			float Distance = distance(m_AnimationStartPos, TargetPos);
 
 			// move time
@@ -129,7 +102,7 @@ void CCamera::OnRender()
 			float XVal = 1 - m_MoveTime;
 			XVal = pow(XVal, 7.0f);
 
-			m_Center = TargetPos + s_Dir * (XVal * Distance);
+			m_Center = TargetPos + Dir * (XVal*Distance);
 		}
 	}
 
@@ -138,16 +111,17 @@ void CCamera::OnRender()
 
 void CCamera::ChangePosition(int PositionNumber)
 {
-	if(m_pClient->Client()->State() == IClient::STATE_ONLINE)
-		return; //Do not change Main Menu Camera Positions while we are changing settings in-game
-
 	if(PositionNumber < 0 || PositionNumber > NUM_POS-1)
 		return;
-
 	m_AnimationStartPos = m_Center;
 	m_RotationCenter = m_Positions[PositionNumber];
 	m_CurrentPosition = PositionNumber;
 	m_MoveTime = 0.0f;
+}
+
+int CCamera::GetCurrentPosition()
+{
+	return m_CurrentPosition;
 }
 
 void CCamera::ConSetPosition(IConsole::IResult *pResult, void *pUserData)

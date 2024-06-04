@@ -341,4 +341,4 @@ protected:
 	int num_elements;
 };
 
-#endif // BASE_TL_ARRAY_H
+#endif // TL_FILE_ARRAY_HPP

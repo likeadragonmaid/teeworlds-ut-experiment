@@ -2,7 +2,7 @@
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "gamecore.h"
 
-const char *CTuningParams::s_apNames[] =
+const char *CTuningParams::m_apNames[] =
 {
 	#define MACRO_TUNING_PARAM(Name,ScriptName,Value) #ScriptName,
 	#include "tuning.h"
@@ -29,7 +29,7 @@ bool CTuningParams::Get(int Index, float *pValue) const
 bool CTuningParams::Set(const char *pName, float Value)
 {
 	for(int i = 0; i < Num(); i++)
-		if(str_comp_nocase(pName, GetName(i)) == 0)
+		if(str_comp_nocase(pName, m_apNames[i]) == 0)
 			return Set(i, Value);
 	return false;
 }
@@ -37,25 +37,16 @@ bool CTuningParams::Set(const char *pName, float Value)
 bool CTuningParams::Get(const char *pName, float *pValue) const
 {
 	for(int i = 0; i < Num(); i++)
-		if(str_comp_nocase(pName, GetName(i)) == 0)
+		if(str_comp_nocase(pName, m_apNames[i]) == 0)
 			return Get(i, pValue);
+
 	return false;
 }
 
-int CTuningParams::PossibleTunings(const char *pStr, IConsole::FPossibleCallback pfnCallback, void *pUser)
+float HermiteBasis1(float v)
 {
-	int Index = 0;
-	for(int i = 0; i < Num(); i++)
-	{
-		if(str_find_nocase(GetName(i), pStr))
-		{
-			pfnCallback(Index, GetName(i), pUser);
-			Index++;
-		}
-	}
-	return Index;
+	return 2*v*v*v - 3*v*v+1;
 }
-
 
 float VelocityRamp(float Value, float Start, float Range, float Curvature)
 {
@@ -76,7 +67,6 @@ void CCharacterCore::Reset()
 {
 	m_Pos = vec2(0,0);
 	m_Vel = vec2(0,0);
-	m_HookDragVel = vec2(0,0);
 	m_HookPos = vec2(0,0);
 	m_HookDir = vec2(0,0);
 	m_HookTick = 0;
@@ -92,9 +82,11 @@ void CCharacterCore::Tick(bool UseInput)
 	m_TriggeredEvents = 0;
 
 	// get ground state
-	const bool Grounded =
-		m_pCollision->CheckPoint(m_Pos.x+PHYS_SIZE/2, m_Pos.y+PHYS_SIZE/2+5)
-		|| m_pCollision->CheckPoint(m_Pos.x-PHYS_SIZE/2, m_Pos.y+PHYS_SIZE/2+5);
+	bool Grounded = false;
+	if(m_pCollision->CheckPoint(m_Pos.x+PHYS_SIZE/2, m_Pos.y+PHYS_SIZE/2+5))
+		Grounded = true;
+	if(m_pCollision->CheckPoint(m_Pos.x-PHYS_SIZE/2, m_Pos.y+PHYS_SIZE/2+5))
+		Grounded = true;
 
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
@@ -217,7 +209,7 @@ void CCharacterCore::Tick(bool UseInput)
 				vec2 ClosestPoint = closest_point_on_line(m_HookPos, NewPos, pCharCore->m_Pos);
 				if(distance(pCharCore->m_Pos, ClosestPoint) < PHYS_SIZE+2.0f)
 				{
-					if(m_HookedPlayer == -1 || distance(m_HookPos, pCharCore->m_Pos) < Distance)
+					if (m_HookedPlayer == -1 || distance(m_HookPos, pCharCore->m_Pos) < Distance)
 					{
 						m_TriggeredEvents |= COREEVENTFLAG_HOOK_ATTACH_PLAYER;
 						m_HookState = HOOK_GRABBED;
@@ -322,7 +314,7 @@ void CCharacterCore::Tick(bool UseInput)
 
 				// make sure that we don't add excess force by checking the
 				// direction against the current velocity. if not zero.
-				if(length(m_Vel) > 0.0001)
+				if (length(m_Vel) > 0.0001)
 					Velocity = 1-(dot(normalize(m_Vel), Dir)+1)/2;
 
 				m_Vel += Dir*a*(Velocity*0.75f);
@@ -335,12 +327,15 @@ void CCharacterCore::Tick(bool UseInput)
 				if(Distance > PHYS_SIZE*1.50f) // TODO: fix tweakable variable
 				{
 					float Accel = m_pWorld->m_Tuning.m_HookDragAccel * (Distance/m_pWorld->m_Tuning.m_HookLength);
+					float DragSpeed = m_pWorld->m_Tuning.m_HookDragSpeed;
 
 					// add force to the hooked player
-					pCharCore->m_HookDragVel += Dir*Accel*1.5f;
+					pCharCore->m_Vel.x = SaturatedAdd(-DragSpeed, DragSpeed, pCharCore->m_Vel.x, Accel*Dir.x*1.5f);
+					pCharCore->m_Vel.y = SaturatedAdd(-DragSpeed, DragSpeed, pCharCore->m_Vel.y, Accel*Dir.y*1.5f);
 
 					// add a little bit force to the guy who has the grip
-					m_HookDragVel -= Dir*Accel*0.25f;
+					m_Vel.x = SaturatedAdd(-DragSpeed, DragSpeed, m_Vel.x, -Accel*Dir.x*0.25f);
+					m_Vel.y = SaturatedAdd(-DragSpeed, DragSpeed, m_Vel.y, -Accel*Dir.y*0.25f);
 				}
 			}
 		}
@@ -349,20 +344,6 @@ void CCharacterCore::Tick(bool UseInput)
 	// clamp the velocity to something sane
 	if(length(m_Vel) > 6000)
 		m_Vel = normalize(m_Vel) * 6000;
-}
-
-void CCharacterCore::AddDragVelocity()
-{
-	// Apply hook interaction velocity
-	float DragSpeed = m_pWorld->m_Tuning.m_HookDragSpeed;
-
-	m_Vel.x = SaturatedAdd(-DragSpeed, DragSpeed, m_Vel.x, m_HookDragVel.x);
-	m_Vel.y = SaturatedAdd(-DragSpeed, DragSpeed, m_Vel.y, m_HookDragVel.y);
-}
-
-void CCharacterCore::ResetDragVelocity()
-{
-	m_HookDragVel = vec2(0,0);
 }
 
 void CCharacterCore::Move()
@@ -411,7 +392,7 @@ void CCharacterCore::Move()
 	m_Pos = NewPos;
 }
 
-void CCharacterCore::Write(CNetObj_CharacterCore *pObjCore) const
+void CCharacterCore::Write(CNetObj_CharacterCore *pObjCore)
 {
 	pObjCore->m_X = round_to_int(m_Pos.x);
 	pObjCore->m_Y = round_to_int(m_Pos.y);

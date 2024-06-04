@@ -1,0 +1,27 @@
+clickable_minimum_required: 8.0.0
+builder: cmake
+kill: teeworlds
+
+dependencies_host:
+- build-essential
+- cmake
+- libfreetype6-dev
+- libsdl2-dev
+- libpnglite-dev
+- libwavpack-dev
+#- python3
+
+dependencies_target:
+- libfreetype6-dev
+- libsdl2-dev
+- libpnglite-dev
+- libwavpack-dev
+#- python3
+
+install_root_data:
+- manifest.json
+- teeworlds.apparmor
+- teeworlds.desktop
+- assets
+- ${BUILD_DIR}/data
+- ${BUILD_DIR}/teeworlds

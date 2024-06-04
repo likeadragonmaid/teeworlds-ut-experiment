@@ -20,8 +20,8 @@ public:
 		ACCESS_LEVEL_ADMIN=0,
 		ACCESS_LEVEL_MOD,
 
-		TEMPCMD_NAME_LENGTH=48,
-		TEMPCMD_HELP_LENGTH=128,
+		TEMPCMD_NAME_LENGTH=32,
+		TEMPCMD_HELP_LENGTH=96,
 		TEMPCMD_PARAMS_LENGTH=96,
 
 		TEMPMAP_NAME_LENGTH = 32,
@@ -35,8 +35,6 @@ public:
 	protected:
 		unsigned m_NumArgs;
 	public:
-		int m_Value;
-		char m_aValue[128];
 		IResult() { m_NumArgs = 0; }
 		virtual ~IResult() {}
 
@@ -64,17 +62,15 @@ public:
 	};
 
 	typedef void (*FPrintCallback)(const char *pStr, void *pUser, bool Highlighted);
-	typedef void (*FPossibleCallback)(int Index, const char *pCmd, void *pUser);
+	typedef void (*FPossibleCallback)(const char *pCmd, void *pUser);
 	typedef void (*FCommandCallback)(IResult *pResult, void *pUserData);
 	typedef void (*FChainCommandCallback)(IResult *pResult, void *pUserData, FCommandCallback pfnCallback, void *pCallbackUserData);
-
-	static void EmptyPossibleCommandCallback(int Index, const char *pCmd, void *pUser) {}
 
 	virtual void Init() = 0;
 	virtual const CCommandInfo *FirstCommandInfo(int AccessLevel, int Flagmask) const = 0;
 	virtual const CCommandInfo *GetCommandInfo(const char *pName, int FlagMask, bool Temp) = 0;
-	virtual int PossibleCommands(const char *pStr, int FlagMask, bool Temp, FPossibleCallback pfnCallback = EmptyPossibleCommandCallback, void *pUser = 0) = 0;
-	virtual int PossibleMaps(const char *pStr, FPossibleCallback pfnCallback = EmptyPossibleCommandCallback, void *pUser = 0) = 0;
+	virtual void PossibleCommands(const char *pStr, int FlagMask, bool Temp, FPossibleCallback pfnCallback, void *pUser) = 0;
+	virtual void PossibleMaps(const char *pStr, FPossibleCallback pfnCallback, void *pUser) = 0;
 	virtual void ParseArguments(int NumArgs, const char **ppArguments) = 0;
 
 	virtual void Register(const char *pName, const char *pParams, int Flags, FCommandCallback pfnFunc, void *pUser, const char *pHelp) = 0;

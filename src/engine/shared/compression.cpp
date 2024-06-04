@@ -5,100 +5,91 @@
 #include "compression.h"
 
 // Format: ESDDDDDD EDDDDDDD EDD... Extended, Data, Sign
-unsigned char *CVariableInt::Pack(unsigned char *pDst, int i, int DstSize)
+unsigned char *CVariableInt::Pack(unsigned char *pDst, int i)
 {
-	if(DstSize <= 0)
-		return 0;
+	*pDst = (i>>25)&0x40; // set sign bit if i<0
+	i = i^(i>>31); // if(i<0) i = ~i
 
-	DstSize--;
-	*pDst = 0;
-	if(i < 0)
-	{
-		*pDst |= 0x40; // set sign bit
-		i = ~i;
-	}
-
-	*pDst |= i & 0x3F; // pack 6bit into dst
+	*pDst |= i&0x3F; // pack 6bit into dst
 	i >>= 6; // discard 6 bits
-	while(i)
+	if(i)
 	{
-		if(DstSize <= 0)
-			return 0;
 		*pDst |= 0x80; // set extend bit
-		DstSize--;
-		pDst++;
-		*pDst = i & 0x7F; // pack 7bit
-		i >>= 7; // discard 7 bits
+		while(1)
+		{
+			pDst++;
+			*pDst = i&(0x7F); // pack 7bit
+			i >>= 7; // discard 7 bits
+			*pDst |= (i!=0)<<7; // set extend bit (may branch)
+			if(!i)
+				break;
+		}
 	}
 
 	pDst++;
 	return pDst;
 }
 
-const unsigned char *CVariableInt::Unpack(const unsigned char *pSrc, int *pInOut, int SrcSize)
+const unsigned char *CVariableInt::Unpack(const unsigned char *pSrc, int *pInOut)
 {
-	if(SrcSize <= 0)
-		return 0;
+	int Sign = (*pSrc>>6)&1;
+	*pInOut = *pSrc&0x3F;
 
-	const int Sign = (*pSrc >> 6) & 1;
-	*pInOut = *pSrc & 0x3F;
-	SrcSize--;
-
-	const static int s_aMasks[] = {0x7F, 0x7F, 0x7F, 0x0F};
-	const static int s_aShifts[] = {6, 6 + 7, 6 + 7 + 7, 6 + 7 + 7 + 7};
-
-	for(unsigned i = 0; i < sizeof(s_aMasks) / sizeof(int); i++)
+	do
 	{
-		if(!(*pSrc & 0x80))
-			break;
-		if(SrcSize <= 0)
-			return 0;
-		SrcSize--;
+		if(!(*pSrc&0x80)) break;
 		pSrc++;
-		*pInOut |= (*pSrc & s_aMasks[i]) << s_aShifts[i];
-	}
+		*pInOut |= (*pSrc&(0x7F))<<(6);
+
+		if(!(*pSrc&0x80)) break;
+		pSrc++;
+		*pInOut |= (*pSrc&(0x7F))<<(6+7);
+
+		if(!(*pSrc&0x80)) break;
+		pSrc++;
+		*pInOut |= (*pSrc&(0x7F))<<(6+7+7);
+
+		if(!(*pSrc&0x80)) break;
+		pSrc++;
+		*pInOut |= (*pSrc&(0x7F))<<(6+7+7+7);
+	} while(0);
 
 	pSrc++;
 	*pInOut ^= -Sign; // if(sign) *i = ~(*i)
 	return pSrc;
 }
 
+
 long CVariableInt::Decompress(const void *pSrc_, int SrcSize, void *pDst_, int DstSize)
 {
-	dbg_assert(DstSize % sizeof(int) == 0, "invalid bounds");
-
 	const unsigned char *pSrc = (unsigned char *)pSrc_;
-	const unsigned char *pSrcEnd = pSrc + SrcSize;
+	const unsigned char *pEnd = pSrc + SrcSize;
 	int *pDst = (int *)pDst_;
-	const int *pDstEnd = pDst + DstSize / sizeof(int);
-	while(pSrc < pSrcEnd)
+	int *pDstEnd = pDst + DstSize/4;
+	while(pSrc < pEnd)
 	{
 		if(pDst >= pDstEnd)
 			return -1;
-		pSrc = CVariableInt::Unpack(pSrc, pDst, pSrcEnd - pSrc);
-		if(!pSrc)
-			return -1;
+		pSrc = CVariableInt::Unpack(pSrc, pDst);
 		pDst++;
 	}
-	return (long)((unsigned char *)pDst - (unsigned char *)pDst_);
+	return (long)((unsigned char *)pDst-(unsigned char *)pDst_);
 }
 
 long CVariableInt::Compress(const void *pSrc_, int SrcSize, void *pDst_, int DstSize)
 {
-	dbg_assert(SrcSize % sizeof(int) == 0, "invalid bounds");
-
-	const int *pSrc = (int *)pSrc_;
+	int *pSrc = (int *)pSrc_;
 	unsigned char *pDst = (unsigned char *)pDst_;
-	const unsigned char *pDstEnd = pDst + DstSize;
-	SrcSize /= sizeof(int);
+	unsigned char *pDstEnd = pDst + DstSize;
+	SrcSize /= 4;
 	while(SrcSize)
 	{
-		pDst = CVariableInt::Pack(pDst, *pSrc, pDstEnd - pDst);
-		if(!pDst)
+		if(pDstEnd - pDst < 6)
 			return -1;
+		pDst = CVariableInt::Pack(pDst, *pSrc);
 		SrcSize--;
 		pSrc++;
 	}
-	return (long)(pDst - (unsigned char *)pDst_);
+	return (long)(pDst-(unsigned char *)pDst_);
 }
 

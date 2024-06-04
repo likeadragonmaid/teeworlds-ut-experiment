@@ -16,7 +16,7 @@ public:
 		SKINFLAG_STANDARD=1<<1,
 
 		DARKEST_COLOR_LGT=61,
-
+		
 		NUM_COLOR_COMPONENTS=4,
 
 		HAT_NUM=2,
@@ -26,7 +26,7 @@ public:
 	struct CSkinPart
 	{
 		int m_Flags;
-		char m_aName[MAX_SKIN_ARRAY_SIZE];
+		char m_aName[24];
 		IGraphics::CTextureHandle m_OrgTexture;
 		IGraphics::CTextureHandle m_ColorTexture;
 		vec3 m_BloodColor;
@@ -37,7 +37,7 @@ public:
 	struct CSkin
 	{
 		int m_Flags;
-		char m_aName[MAX_SKIN_ARRAY_SIZE];
+		char m_aName[24];
 		const CSkinPart *m_apParts[NUM_SKINPARTS];
 		int m_aPartColors[NUM_SKINPARTS];
 		int m_aUseCustomColors[NUM_SKINPARTS];
@@ -67,16 +67,15 @@ public:
 	int Find(const char *pName, bool AllowSpecialSkin);
 	const CSkinPart *GetSkinPart(int Part, int Index);
 	int FindSkinPart(int Part, const char *pName, bool AllowSpecialPart);
-	void RandomizeSkin();
 
 	vec3 GetColorV3(int v) const;
 	vec4 GetColorV4(int v, bool UseAlpha) const;
 	int GetTeamColor(int UseCustomColors, int PartColor, int Team, int Part) const;
 
 	// returns true if everything was valid and nothing changed
-	bool ValidateSkinParts(char *apPartNames[NUM_SKINPARTS], int *pUseCustomColors, int *pPartColors, int GameFlags) const;
+	bool ValidateSkinParts(char *aPartNames[NUM_SKINPARTS], int *aUseCustomColors, int* aPartColors, int GameFlags) const;
 
-	bool SaveSkinfile(const char *pSaveSkinName);
+	void SaveSkinfile(const char *pSaveSkinName);
 
 private:
 	int m_ScanningPart;

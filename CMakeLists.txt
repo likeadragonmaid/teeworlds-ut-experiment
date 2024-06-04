@@ -1,7 +1,4 @@
-cmake_minimum_required(VERSION 2.8.12...3.19.1)
-if(CMAKE_VERSION VERSION_LESS 3.12)
-  cmake_policy(VERSION ${CMAKE_VERSION})
-endif()
+cmake_minimum_required(VERSION 2.8)
 
 file(STRINGS src/game/version.h VERSION_LINE
   LIMIT_COUNT 1
@@ -20,15 +17,32 @@ else()
   message(FATAL_ERROR "Couldn't parse version from src/game/version.h")
 endif()
 
-# Extra support for CMake pre-3.0
-if(NOT POLICY CMP0048)
+if(POLICY CMP0017)
+  cmake_policy(SET CMP0017 NEW)
+endif()
+
+if(POLICY CMP0072)
+  cmake_policy(SET CMP0072 OLD)
+endif()
+
+if(POLICY CMP0091)
+  cmake_policy(SET CMP0091 NEW)
+endif()
+
+if(POLICY CMP0092)
+  cmake_policy(SET CMP0092 NEW)
+endif()
+
+if(POLICY CMP0048)
+  cmake_policy(SET CMP0048 NEW)
+  project(teeworlds VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
+else()
+  project(teeworlds)
   set(PROJECT_VERSION_MAJOR ${VERSION_MAJOR})
   set(PROJECT_VERSION_MINOR ${VERSION_MINOR})
   set(PROJECT_VERSION_PATCH ${VERSION_PATCH})
   set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 endif()
-
-project(teeworlds VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
 set(ORIGINAL_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 set(ORIGINAL_CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES})
@@ -67,13 +81,12 @@ if(TARGET_OS STREQUAL "windows")
 endif()
 
 option(CLIENT "Compile client" ON)
-option(HEADLESS_CLIENT "Build the client without graphics" OFF)
 option(DOWNLOAD_DEPENDENCIES "Download dependencies (only available on Windows)" ${AUTO_DEPENDENCIES_DEFAULT})
 option(DOWNLOAD_GTEST "Download and compile GTest if not found" ${AUTO_DEPENDENCIES_DEFAULT})
 option(PREFER_BUNDLED_LIBS "Prefer bundled libraries over system libraries" ${AUTO_DEPENDENCIES_DEFAULT})
 option(DEV "Don't generate stuff necessary for packaging" OFF)
 
-set(OpenGL_GL_PREFERENCE GLVND)
+set(OpenGL_GL_PREFERENCE LEGACY)
 
 # Set the default build type to Release
 if(NOT(CMAKE_BUILD_TYPE))
@@ -138,7 +151,8 @@ endfunction()
 
 if(NOT MSVC)
   # Protect the stack pointer.
-  add_c_compiler_flag_if_supported(OUR_FLAGS -fstack-protector-all)
+  # -fstack-protector-all doesn't work on MinGW.
+  add_c_compiler_flag_if_supported(OUR_FLAGS -fstack-protector-strong)
 
   # Protect the stack from clashing.
   add_c_compiler_flag_if_supported(OUR_FLAGS -fstack-clash-protection)
@@ -384,26 +398,23 @@ endif()
 
 if(TARGET_OS STREQUAL "windows")
   set(PLATFORM_CLIENT)
-  set(PLATFORM_CLIENT_LIBS opengl32 winmm imm32)
+  set(PLATFORM_CLIENT_LIBS opengl32 winmm)
   set(PLATFORM_LIBS ws2_32) # Windows sockets
 elseif(TARGET_OS STREQUAL "mac")
   find_library(CARBON Carbon)
   find_library(COCOA Cocoa)
   find_library(OPENGL OpenGL)
   set(PLATFORM_CLIENT
-    src/macoslaunch/client.m
+    src/osxlaunch/client.m
   )
   set(PLATFORM_CLIENT_LIBS ${COCOA} ${OPENGL})
   set(PLATFORM_LIBS ${CARBON})
 else()
   set(PLATFORM_CLIENT)
   find_package(OpenGL)
-  if(CMAKE_VERSION VERSION_LESS 3.10)
-    set(PLATFORM_CLIENT_LIBS ${OPENGL_gl_LIBRARY})
-  else()
-    set(PLATFORM_CLIENT_LIBS ${OPENGL_opengl_LIBRARY})
-  endif()
-  set(PLATFORM_CLIENT_INCLUDE_DIRS ${OPENGL_INCLUDE_DIR})
+  find_package(X11)
+  set(PLATFORM_CLIENT_LIBS ${OPENGL_gl_LIBRARY} ${X11_X11_LIB})
+  set(PLATFORM_CLIENT_INCLUDE_DIRS ${OPENGL_INCLUDE_DIR} ${X11_X11_INCLUDE_PATH})
   if(TARGET_OS STREQUAL "linux")
     set(PLATFORM_LIBS rt) # clock_gettime for glibc < 2.17
   else()
@@ -416,7 +427,7 @@ endif()
 ########################################################################
 
 if(NOT(GTEST_FOUND) AND DOWNLOAD_GTEST)
-  set(TEEWORLDS_GTEST_VERSION 5c8ca58edfb304b2dd5e6061f83387470826dd87) # master as of 2021-04-07
+  set(TEEWORLDS_GTEST_VERSION release-1.8.1)
   configure_file(cmake/Download_GTest_CMakeLists.txt.in googletest-download/CMakeLists.txt)
   execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
     RESULT_VARIABLE result
@@ -885,8 +896,6 @@ set(EXPECTED_DATA
   editor/entities.png
   emoticons.png
   fonts/DejaVuSans.ttf
-  fonts/SourceHanSans.ttc
-  fonts/index.json
   game.png
   languages/belarusian.json
   languages/bosnian.json
@@ -1128,7 +1137,6 @@ set(EXPECTED_DATA
   ui/icons/friend.png
   ui/icons/level.png
   ui/icons/menu.png
-  ui/icons/network.png
   ui/icons/sidebar.png
   ui/icons/timer_clock.png
   ui/icons/tools.png
@@ -1139,7 +1147,6 @@ set(EXPECTED_DATA
   ui/menuimages/settings.png
   ui/no_skinpart.png
   ui/sound_icons.png
-  ui/themes/auto.png
   ui/themes/heavens.png
   ui/themes/heavens_day.map
   ui/themes/heavens_night.map
@@ -1170,7 +1177,7 @@ if(NOT EXISTS ${PROJECT_SOURCE_DIR}/datasrc/maps/dm1.map)
   endforeach()
 endif()
 
-set_glob(DATA GLOB_RECURSE "json;map;png;rules;ttc;ttf;txt;wv" datasrc ${EXPECTED_DATA})
+set_glob(DATA GLOB_RECURSE "json;map;png;rules;ttf;txt;wv" datasrc ${EXPECTED_DATA})
 
 ########################################################################
 # COPY DATA AND DLLS
@@ -1272,6 +1279,7 @@ set_src(BASE GLOB_RECURSE src/base
   tl/algorithm.h
   tl/allocator.h
   tl/array.h
+  tl/base.h
   tl/range.h
   tl/sorted_array.h
   tl/string.h
@@ -1291,7 +1299,6 @@ set_src(ENGINE_INTERFACE GLOB src/engine
   kernel.h
   keys.h
   map.h
-  mapchecker.h
   masterserver.h
   message.h
   server.h
@@ -1332,6 +1339,7 @@ set_src(ENGINE_SHARED GLOB src/engine/shared
   masterserver.cpp
   memheap.cpp
   memheap.h
+  message.h
   netban.cpp
   netban.h
   network.cpp
@@ -1398,7 +1406,6 @@ if(CLIENT)
     contacts.h
     graphics_threaded.cpp
     graphics_threaded.h
-    graphics_threaded_null.h
     input.cpp
     input.h
     keynames.h
@@ -1411,8 +1418,7 @@ if(CLIENT)
     serverbrowser_filter.h
     sound.cpp
     sound.h
-    textrender.cpp
-    textrender.h
+    text.cpp
   )
   set_src(GAME_CLIENT GLOB_RECURSE src/game/client
     animstate.cpp
@@ -1458,6 +1464,9 @@ if(CLIENT)
     components/menus_callback.cpp
     components/menus_demo.cpp
     components/menus_ingame.cpp
+    components/menus_listbox.cpp
+    components/menus_popups.cpp
+    components/menus_scrollregion.cpp
     components/menus_settings.cpp
     components/menus_start.cpp
     components/motd.cpp
@@ -1493,12 +1502,6 @@ if(CLIENT)
     render_map.cpp
     ui.cpp
     ui.h
-    ui_listbox.cpp
-    ui_listbox.h
-    ui_rect.cpp
-    ui_rect.h
-    ui_scrollregion.cpp
-    ui_scrollregion.h
   )
   set_src(GAME_EDITOR GLOB src/game/editor
     auto_map.cpp
@@ -1656,7 +1659,7 @@ list(APPEND TARGETS_OWN ${TARGET_SERVER})
 list(APPEND TARGETS_LINK ${TARGET_SERVER})
 
 if(TARGET_OS AND TARGET_OS STREQUAL "mac")
-  set(SERVER_LAUNCHER_SRC src/macoslaunch/server.mm)
+  set(SERVER_LAUNCHER_SRC src/osxlaunch/server.mm)
   set(TARGET_SERVER_LAUNCHER ${TARGET_SERVER}-Launcher)
   add_executable(${TARGET_SERVER_LAUNCHER} ${SERVER_LAUNCHER_SRC})
   target_link_libraries(${TARGET_SERVER_LAUNCHER} ${COCOA})
@@ -1719,16 +1722,11 @@ add_custom_target(everything DEPENDS ${TARGETS_OWN})
 
 if(GTEST_FOUND OR DOWNLOAD_GTEST)
   set_src(TESTS GLOB src/test
-    bytes_be.cpp
-    compression.cpp
     datafile.cpp
     fs.cpp
     git_revision.cpp
     hash.cpp
-    io.cpp
     jsonwriter.cpp
-    packer.cpp
-    sorted_array.cpp
     storage.cpp
     str.cpp
     test.cpp
@@ -1845,7 +1843,7 @@ if(TARGET_OS AND TARGET_BITS)
       set(CPACK_SYSTEM_NAME "linux_x86_64")
     endif()
   elseif(TARGET_OS STREQUAL "mac")
-    set(CPACK_SYSTEM_NAME "macos")
+    set(CPACK_SYSTEM_NAME "osx")
     set(CPACK_GENERATOR DMG)
   endif()
 endif()
@@ -2078,7 +2076,6 @@ foreach(target ${TARGETS})
     target_compile_options(${target} PRIVATE /EHsc) # Only catch C++ exceptions with catch.
     target_compile_options(${target} PRIVATE /GS) # Protect the stack pointer.
     target_compile_options(${target} PRIVATE /wd4996) # Use of non-_s functions.
-    target_compile_options(${target} PRIVATE /utf-8) # Use UTF-8 for source files.
   endif()
   if(OUR_FLAGS)
     target_compile_options(${target} PRIVATE ${OUR_FLAGS})
@@ -2117,11 +2114,6 @@ foreach(target ${TARGETS_OWN})
     target_compile_options(${target} PRIVATE /wd4267) # Possible loss of data (size_t - int on win64).
     target_compile_options(${target} PRIVATE /wd4800) # Implicit conversion of int to bool.
   endif()
-  if(TARGET_OS STREQUAL "windows")
-    target_compile_definitions(${target} PRIVATE _WIN32_WINNT=0x0501)
-    target_compile_definitions(${target} PRIVATE UNICODE) # Windows headers
-    target_compile_definitions(${target} PRIVATE _UNICODE) # C-runtime
-  endif()
   if(OUR_FLAGS_OWN)
     target_compile_options(${target} PRIVATE ${OUR_FLAGS_OWN})
   endif()
@@ -2133,9 +2125,6 @@ foreach(target ${TARGETS_OWN})
   if(CRYPTO_FOUND)
     target_compile_definitions(${target} PRIVATE CONF_OPENSSL)
     target_include_directories(${target} PRIVATE ${CRYPTO_INCLUDE_DIRS})
-  endif()
-  if(HEADLESS_CLIENT)
-    target_compile_definitions(${target} PRIVATE CONF_HEADLESS_CLIENT)
   endif()
 endforeach()
 

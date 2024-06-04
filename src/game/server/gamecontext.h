@@ -39,7 +39,6 @@ class CGameContext : public IGameServer
 	IServer *m_pServer;
 	class CConfig *m_pConfig;
 	class IConsole *m_pConsole;
-	class IStorage *m_pStorage;
 	CLayers m_Layers;
 	CCollision m_Collision;
 	CNetObjHandler m_NetObjHandler;
@@ -78,7 +77,6 @@ public:
 	IServer *Server() const { return m_pServer; }
 	class CConfig *Config() { return m_pConfig; }
 	class IConsole *Console() { return m_pConsole; }
-	class IStorage *Storage() { return m_pStorage; }
 	CCollision *Collision() { return &m_Collision; }
 	CTuningParams *Tuning() { return &m_Tuning; }
 
@@ -124,6 +122,10 @@ public:
 	int m_VoteEnforce;
 	enum
 	{
+		VOTE_ENFORCE_UNKNOWN=0,
+		VOTE_ENFORCE_NO,
+		VOTE_ENFORCE_YES,
+
 		VOTE_TIME=25,
 		VOTE_CANCEL_TIME = 10,
 

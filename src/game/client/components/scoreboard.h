@@ -9,10 +9,11 @@ class CScoreboard : public CComponent
 	void RenderGoals(float x, float y, float w);
 	float RenderSpectators(float x, float y, float w);
 	float RenderScoreboard(float x, float y, float w, int Team, const char *pTitle, int Align);
-	void RenderRecordingNotification(float x, float w);
-	void RenderNetworkQuality(float x, float w);
+	void RenderRecordingNotification(float x);
 
 	static void ConKeyScoreboard(IConsole::IResult *pResult, void *pUserData);
+
+	const char *GetClanName(int Team);
 
 	bool m_Active;
 	bool m_Activate;
@@ -24,11 +25,10 @@ public:
 	virtual void OnConsoleInit();
 	virtual void OnRender();
 	virtual void OnRelease();
-
+	
  	bool IsActive() const;
 	void ResetPlayerStats(int ClientID);
  	class CUIRect GetScoreboardRect() const { return m_TotalRect; }
-	const char *GetClanName(int Team);
 };
 
 #endif

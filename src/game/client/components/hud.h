@@ -27,8 +27,8 @@ class CHud : public CComponent
 	void RenderGameTimer();
 	void RenderPauseTimer();
 	void RenderStartCountdown();
-	void RenderNetworkIssueNotification();
 	void RenderDeadNotification();
+	void RenderSuddenDeath();
 	void RenderScoreHud();
 	void RenderSpectatorHud();
 	void RenderSpectatorNotification();
@@ -36,7 +36,6 @@ class CHud : public CComponent
 	void RenderWarmupTimer();
 	void RenderRaceTime(const CNetObj_PlayerInfoRace *pRaceInfo);
 	void RenderCheckpoint();
-	void RenderLocalTime(float x);
 public:
 	CHud();
 

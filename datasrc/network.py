@@ -54,10 +54,6 @@ enum
 	SKINPART_FEET,
 	SKINPART_EYES,
 	NUM_SKINPARTS,
-
-	VOTE_CHOICE_NO = -1,
-	VOTE_CHOICE_PASS = 0,
-	VOTE_CHOICE_YES = 1
 };
 '''
 
@@ -96,8 +92,6 @@ Objects = [
 
 		NetFlag("m_PlayerFlags", PlayerFlags),
 
-		# 0 means "no wanted weapon", `1+weapon` means that `weapon` is wanted,
-		# and ninja is not a valid wanted weapon.
 		NetIntRange("m_WantedWeapon", 0, 'NUM_WEAPONS-1'),
 		NetIntAny("m_NextWeapon"),
 		NetIntAny("m_PrevWeapon"),
@@ -165,7 +159,7 @@ Objects = [
 		NetIntRange("m_Direction", -1, 1),
 
 		NetIntRange("m_Jumped", 0, 3),
-		NetIntRange("m_HookedPlayer", -1, 'MAX_CLIENTS-1'),
+		NetIntRange("m_HookedPlayer", 0, 'MAX_CLIENTS-1'),
 		NetIntRange("m_HookState", -1, 5),
 		NetTick("m_HookTick"),
 
@@ -179,7 +173,7 @@ Objects = [
 		NetIntRange("m_Health", 0, 10),
 		NetIntRange("m_Armor", 0, 10),
 		NetIntAny("m_AmmoCount"),
-		NetIntRange("m_Weapon", -1, 'NUM_WEAPONS-1'),
+		NetIntRange("m_Weapon", 0, 'NUM_WEAPONS-1'),
 		NetEnum("m_Emote", Emotes),
 		NetTick("m_AttackTick"),
 		NetFlag("m_TriggeredEvents", CoreEventFlags),
@@ -303,7 +297,7 @@ Messages = [
 	]),
 
 	NetMessage("Sv_TuneParams", []),
-	NetMessage("Sv_ExtraProjectile", []), # unused
+	NetMessage("Sv_ExtraProjectile", []),
 	NetMessage("Sv_ReadyToEnter", []),
 
 	NetMessage("Sv_WeaponPickup", [
@@ -429,7 +423,7 @@ Messages = [
 	]),
 
 	NetMessage("Cl_Vote", [
-		NetIntRange("m_Vote", 'VOTE_CHOICE_NO', 'VOTE_CHOICE_YES'),
+		NetIntRange("m_Vote", -1, 1),
 	]),
 
 	NetMessage("Cl_CallVote", [

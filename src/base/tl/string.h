@@ -3,6 +3,7 @@
 #ifndef BASE_TL_STRING_H
 #define BASE_TL_STRING_H
 
+#include "base.h"
 #include "allocator.h"
 
 template<class ALLOCATOR >
@@ -66,4 +67,4 @@ public:
 /* normal allocated string */
 typedef string_base<allocator_default<char> > string;
 
-#endif // BASE_TL_STRING_H
+#endif // TL_FILE_STRING_HPP

@@ -3,6 +3,8 @@
 #ifndef ENGINE_SHARED_RINGBUFFER_H
 #define ENGINE_SHARED_RINGBUFFER_H
 
+typedef struct RINGBUFFER RINGBUFFER;
+
 class CRingBufferBase
 {
 	class CItem

@@ -11,7 +11,7 @@ class CDamageInd : public CComponent
 	{
 		vec2 m_Pos;
 		vec2 m_Dir;
-		float m_LifeTime;
+		float m_StartTime;
 		float m_StartAngle;
 	};
 
@@ -23,14 +23,13 @@ class CDamageInd : public CComponent
 	CItem m_aItems[MAX_ITEMS];
 	int m_NumItems;
 
-	CItem *CreateItem();
-	void DestroyItem(CItem *pItem);
+	CItem *CreateI();
+	void DestroyI(CItem *i);
 
 public:
 	CDamageInd();
 
 	void Create(vec2 Pos, vec2 Dir);
-
 	virtual void OnRender();
 	virtual void OnReset();
 };

@@ -264,7 +264,7 @@ int CNetConnection::Feed(CNetPacketConstruct *pPacket, NETADDR *pAddr)
 
 		if(CtrlMsg == NET_CTRLMSG_CLOSE)
 		{
-			if(net_addr_comp(&m_PeerAddr, pAddr, true) == 0)
+			if(net_addr_comp(&m_PeerAddr, pAddr) == 0)
 			{
 				m_State = NET_CONNSTATE_ERROR;
 				m_RemoteClosed = 1;
@@ -406,29 +406,29 @@ int CNetConnection::Update()
 	// send keep alives if nothing has happend for 250ms
 	if(State() == NET_CONNSTATE_ONLINE)
 	{
-		if(Now-m_LastSendTime > time_freq()/2) // flush connection after 500ms if needed
+		if(time_get()-m_LastSendTime > time_freq()/2) // flush connection after 500ms if needed
 		{
 			int NumFlushedChunks = Flush();
 			if(NumFlushedChunks && Config()->m_Debug)
 				dbg_msg("connection", "flushed connection due to timeout. %d chunks.", NumFlushedChunks);
 		}
 
-		if(Now-m_LastSendTime > time_freq())
+		if(time_get()-m_LastSendTime > time_freq())
 			SendControl(NET_CTRLMSG_KEEPALIVE, 0, 0);
 	}
 	else if(State() == NET_CONNSTATE_TOKEN)
 	{
-		if(Now-m_LastSendTime > time_freq()/2) // send a new token request every 500ms
+		if(time_get()-m_LastSendTime > time_freq()/2) // send a new token request every 500ms
 			SendControlWithToken(NET_CTRLMSG_TOKEN);
 	}
 	else if(State() == NET_CONNSTATE_CONNECT)
 	{
-		if(Now-m_LastSendTime > time_freq()/2) // send a new connect every 500ms
+		if(time_get()-m_LastSendTime > time_freq()/2) // send a new connect every 500ms
 			SendControlWithToken(NET_CTRLMSG_CONNECT);
 	}
 	else if(State() == NET_CONNSTATE_PENDING)
 	{
-		if(Now-m_LastSendTime > time_freq()/2) // send a new connect/accept every 500ms
+		if(time_get()-m_LastSendTime > time_freq()/2) // send a new connect/accept every 500ms
 			SendControl(NET_CTRLMSG_ACCEPT, 0, 0);
 	}
 

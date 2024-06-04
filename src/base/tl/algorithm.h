@@ -3,9 +3,9 @@
 #ifndef BASE_TL_ALGORITHM_H
 #define BASE_TL_ALGORITHM_H
 
+#include "range.h"
 #include <algorithm>
 
-#include "range.h"
 
 /*
 	insert 4
@@ -94,7 +94,7 @@ void sort_bubble(R range)
 		{
 			typename R::type *cur = &section.front();
 			if(*cur < *prev)
-				std::swap(*cur, *prev);
+				tl_swap(*cur, *prev);
 			prev = cur;
 		}
 	}
@@ -107,17 +107,13 @@ void sort_quick(R range)
 	concept_index::check(range);
 }*/
 
-template<class R, class Cmp>
-void sort(R range, Cmp cmp)
-{
-	std::stable_sort(&range.front(), &range.back()+1, cmp);
-}
 
 template<class R>
 void sort(R range)
 {
 	std::stable_sort(&range.front(), &range.back()+1);
 }
+
 
 template<class R>
 bool sort_verify(R range)
@@ -139,4 +135,4 @@ bool sort_verify(R range)
 	return true;
 }
 
-#endif // BASE_TL_ALGORITHM_H
+#endif // TL_FILE_ALGORITHMS_HPP

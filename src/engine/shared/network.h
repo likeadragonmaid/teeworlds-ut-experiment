@@ -470,13 +470,13 @@ public:
 	//
 	bool Open(NETADDR BindAddr, class CConfig *pConfig, class IConsole *pConsole, class IEngine *pEngine, class CNetBan *pNetBan,
 		int MaxClients, int MaxClientsPerIP, NETFUNC_NEWCLIENT pfnNewClient, NETFUNC_DELCLIENT pfnDelClient, void *pUser);
-	void Close(const char *pReason);
+	void Close();
 
 	// the token parameter is only used for connless packets
 	int Recv(CNetChunk *pChunk, TOKEN *pResponseToken = 0);
 	int Send(CNetChunk *pChunk, TOKEN Token = NET_TOKEN_NONE);
 	int Update();
-	void AddToken(const NETADDR *pAddr, TOKEN Token) { m_TokenCache.AddToken(pAddr, Token, 0); }
+	void AddToken(const NETADDR *pAddr, TOKEN Token) { m_TokenCache.AddToken(pAddr, Token, 0); };
 
 	//
 	void Drop(int ClientID, const char *pReason);
@@ -516,7 +516,6 @@ public:
 	int Recv(char *pLine, int MaxLength, int *pClientID = 0);
 	int Send(int ClientID, const char *pLine);
 	int Update();
-	void SetLingerState(int State);
 
 	//
 	int AcceptClient(NETSOCKET Socket, const NETADDR *pAddr);

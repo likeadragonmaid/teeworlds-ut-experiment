@@ -932,8 +932,7 @@ void IGameController::CycleMap()
 		char aBuf[256];
 		str_format(aBuf, sizeof(aBuf), "rotating map to %s", m_aMapWish);
 		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
-		Server()->ChangeMap(m_aMapWish);
-
+		str_copy(Config()->m_SvMap, m_aMapWish, sizeof(Config()->m_SvMap));
 		m_aMapWish[0] = 0;
 		m_MatchCount = 0;
 		return;
@@ -992,7 +991,7 @@ void IGameController::CycleMap()
 	char aBufMsg[256];
 	str_format(aBufMsg, sizeof(aBufMsg), "rotating map to %s", &aBuf[i]);
 	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
-	Server()->ChangeMap(&aBuf[i]);
+	str_copy(Config()->m_SvMap, &aBuf[i], sizeof(Config()->m_SvMap));
 }
 
 // spawn
@@ -1072,7 +1071,7 @@ void IGameController::EvaluateSpawnType(CSpawnEval *pEval, int Type) const
 			continue;	// try next spawn point
 
 		vec2 P = m_aaSpawnPoints[Type][i]+Positions[Result];
-		float S = pEval->m_RandomSpawn ? (Result + random_float()) : EvaluateSpawnPos(pEval, P);
+		float S = pEval->m_RandomSpawn ? random_int() : EvaluateSpawnPos(pEval, P);
 		if(!pEval->m_Got || pEval->m_Score > S)
 		{
 			pEval->m_Got = true;
@@ -1188,12 +1187,8 @@ int IGameController::GetStartTeam()
 	int Team = TEAM_RED;
 	if(IsTeamplay())
 	{
-#ifdef CONF_DEBUG
 		if(!Config()->m_DbgStress)	// this will force the auto balancer to work overtime aswell
-#endif
-		{
 			Team = m_aTeamSize[TEAM_RED] > m_aTeamSize[TEAM_BLUE] ? TEAM_BLUE : TEAM_RED;
-		}
 	}
 
 	// check if there're enough player slots left

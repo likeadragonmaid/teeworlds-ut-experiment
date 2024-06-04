@@ -22,12 +22,11 @@ public:
 	virtual void OnRelease();
 	virtual void OnRender();
 	virtual void OnMessage(int MsgType, void *pRawMsg);
-	virtual bool OnCursorMove(float x, float y, int CursorType);
+	virtual bool OnMouseMove(float x, float y);
 	virtual void OnConsoleInit();
 	virtual void OnPlayerDeath();
 
 	int SnapInput(int *pData);
 	void ClampMousePos();
-	float GetMaxMouseDistance() const;
 };
 #endif

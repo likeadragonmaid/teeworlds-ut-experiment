@@ -4,7 +4,6 @@
 
 #include <engine/shared/config.h>
 #include <engine/shared/memheap.h>
-#include <engine/storage.h>
 #include <engine/map.h>
 
 #include <generated/server_data.h>
@@ -364,12 +363,12 @@ void CGameContext::StartVote(const char *pDesc, const char *pCommand, const char
 		return;
 
 	// reset votes
-	m_VoteEnforce = VOTE_CHOICE_PASS;
+	m_VoteEnforce = VOTE_ENFORCE_UNKNOWN;
 	for(int i = 0; i < MAX_CLIENTS; i++)
 	{
 		if(m_apPlayers[i])
 		{
-			m_apPlayers[i]->m_Vote = VOTE_CHOICE_PASS;
+			m_apPlayers[i]->m_Vote = 0;
 			m_apPlayers[i]->m_VotePos = 0;
 		}
 	}
@@ -569,18 +568,18 @@ void CGameContext::OnTick()
 				}
 			}
 
-			if(m_VoteEnforce == VOTE_CHOICE_YES || (m_VoteUpdate && Yes >= Total/2+1))
+			if(m_VoteEnforce == VOTE_ENFORCE_YES || (m_VoteUpdate && Yes >= Total/2+1))
 			{
 				Server()->SetRconCID(IServer::RCON_CID_VOTE);
 				Console()->ExecuteLine(m_aVoteCommand);
 				Server()->SetRconCID(IServer::RCON_CID_SERV);
 				if(m_VoteCreator != -1 && m_apPlayers[m_VoteCreator])
-					m_apPlayers[m_VoteCreator]->m_LastVoteCallTick = 0;
+					m_apPlayers[m_VoteCreator]->m_LastVoteCall = 0;
 
-				EndVote(VOTE_END_PASS, m_VoteEnforce == VOTE_CHOICE_YES);
+				EndVote(VOTE_END_PASS, m_VoteEnforce==VOTE_ENFORCE_YES);
 			}
-			else if(m_VoteEnforce == VOTE_CHOICE_NO || (m_VoteUpdate && No >= (Total+1)/2) || time_get() > m_VoteCloseTime)
-				EndVote(VOTE_END_FAIL, m_VoteEnforce == VOTE_CHOICE_NO);
+			else if(m_VoteEnforce == VOTE_ENFORCE_NO || (m_VoteUpdate && No >= (Total+1)/2) || time_get() > m_VoteCloseTime)
+				EndVote(VOTE_END_FAIL, m_VoteEnforce==VOTE_ENFORCE_NO);
 			else if(m_VoteUpdate)
 			{
 				m_VoteUpdate = false;
@@ -803,7 +802,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 	{
 		if(MsgID == NETMSGTYPE_CL_SAY)
 		{
-			if(Config()->m_SvSpamprotection && pPlayer->m_LastChatTeamTick && pPlayer->m_LastChatTeamTick+Server()->TickSpeed() > Server()->Tick())
+			if(Config()->m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat+Server()->TickSpeed() > Server()->Tick())
 				return;
 
 			CNetMsg_Cl_Say *pMsg = (CNetMsg_Cl_Say *)pRawMsg;
@@ -835,10 +834,10 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				*(const_cast<char *>(pEnd)) = 0;
 
 			// drop empty and autocreated spam messages (more than 20 characters per second)
-			if(Length == 0 || (Config()->m_SvSpamprotection && pPlayer->m_LastChatTeamTick && pPlayer->m_LastChatTeamTick + Server()->TickSpeed()*(Length/20) > Server()->Tick()))
+			if(Length == 0 || (Config()->m_SvSpamprotection && pPlayer->m_LastChat && pPlayer->m_LastChat + Server()->TickSpeed()*(Length/20) > Server()->Tick()))
 				return;
 
-			pPlayer->m_LastChatTeamTick = Server()->Tick();
+			pPlayer->m_LastChat = Server()->Tick();
 
 			// don't allow spectators to disturb players during a running game in tournament mode
 			int Mode = pMsg->m_Mode;
@@ -868,12 +867,12 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			}
 			else
 			{
-				if((Config()->m_SvSpamprotection && ((pPlayer->m_LastVoteTryTick && pPlayer->m_LastVoteTryTick+Server()->TickSpeed()*3 > Now) ||
-					(pPlayer->m_LastVoteCallTick && pPlayer->m_LastVoteCallTick+Server()->TickSpeed()*VOTE_COOLDOWN > Now))) ||
+				if((Config()->m_SvSpamprotection && ((pPlayer->m_LastVoteTry && pPlayer->m_LastVoteTry+Server()->TickSpeed()*3 > Now) ||
+					(pPlayer->m_LastVoteCall && pPlayer->m_LastVoteCall+Server()->TickSpeed()*VOTE_COOLDOWN > Now))) ||
 					pPlayer->GetTeam() == TEAM_SPECTATORS || m_VoteCloseTime)
 					return;
 
-				pPlayer->m_LastVoteTryTick = Now;
+				pPlayer->m_LastVoteTry = Now;
 			}
 
 			m_VoteType = VOTE_UNKNOWN;
@@ -984,9 +983,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			{
 				m_VoteCreator = ClientID;
 				StartVote(aDesc, aCmd, pReason);
-				pPlayer->m_Vote = VOTE_CHOICE_YES;
+				pPlayer->m_Vote = 1;
 				pPlayer->m_VotePos = m_VotePos = 1;
-				pPlayer->m_LastVoteCallTick = Now;
+				pPlayer->m_LastVoteCall = Now;
 			}
 		}
 		else if(MsgID == NETMSGTYPE_CL_VOTE)
@@ -994,10 +993,10 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			if(!m_VoteCloseTime)
 				return;
 
-			if(pPlayer->m_Vote == VOTE_CHOICE_PASS)
+			if(pPlayer->m_Vote == 0)
 			{
 				CNetMsg_Cl_Vote *pMsg = (CNetMsg_Cl_Vote *)pRawMsg;
-				if(pMsg->m_Vote == VOTE_CHOICE_PASS)
+				if(!pMsg->m_Vote)
 					return;
 
 				pPlayer->m_Vote = pMsg->m_Vote;
@@ -1007,7 +1006,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			else if(m_VoteCreator == pPlayer->GetCID())
 			{
 				CNetMsg_Cl_Vote *pMsg = (CNetMsg_Cl_Vote *)pRawMsg;
-				if(pMsg->m_Vote != VOTE_CHOICE_NO || m_VoteCancelTime<time_get())
+				if(pMsg->m_Vote != -1 || m_VoteCancelTime<time_get())
 					return;
 
 				m_VoteCloseTime = -1;
@@ -1018,11 +1017,11 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			CNetMsg_Cl_SetTeam *pMsg = (CNetMsg_Cl_SetTeam *)pRawMsg;
 
 			if(pPlayer->GetTeam() == pMsg->m_Team ||
-				(Config()->m_SvSpamprotection && pPlayer->m_LastSetTeamTick && pPlayer->m_LastSetTeamTick+Server()->TickSpeed()*3 > Server()->Tick()) ||
+				(Config()->m_SvSpamprotection && pPlayer->m_LastSetTeam && pPlayer->m_LastSetTeam+Server()->TickSpeed()*3 > Server()->Tick()) ||
 				(pMsg->m_Team != TEAM_SPECTATORS && m_LockTeams) || pPlayer->m_TeamChangeTick > Server()->Tick())
 				return;
 
-			pPlayer->m_LastSetTeamTick = Server()->Tick();
+			pPlayer->m_LastSetTeam = Server()->Tick();
 
 			// Switch team on given client and kill/respawn him
 			if(m_pController->CanJoinTeam(pMsg->m_Team, ClientID) && m_pController->CanChangeTeam(pPlayer, pMsg->m_Team))
@@ -1037,10 +1036,10 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		{
 			CNetMsg_Cl_SetSpectatorMode *pMsg = (CNetMsg_Cl_SetSpectatorMode *)pRawMsg;
 
-			if(Config()->m_SvSpamprotection && pPlayer->m_LastSetSpectatorModeTick && pPlayer->m_LastSetSpectatorModeTick+Server()->TickSpeed() > Server()->Tick())
+			if(Config()->m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode+Server()->TickSpeed() > Server()->Tick())
 				return;
 
-			pPlayer->m_LastSetSpectatorModeTick = Server()->Tick();
+			pPlayer->m_LastSetSpectatorMode = Server()->Tick();
 			if(!pPlayer->SetSpectatorID(pMsg->m_SpecMode, pMsg->m_SpectatorID))
 				SendGameMsg(GAMEMSG_SPEC_INVALIDID, ClientID);
 		}
@@ -1048,40 +1047,40 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		{
 			CNetMsg_Cl_Emoticon *pMsg = (CNetMsg_Cl_Emoticon *)pRawMsg;
 
-			if(Config()->m_SvSpamprotection && pPlayer->m_LastEmoteTick && pPlayer->m_LastEmoteTick+Server()->TickSpeed()*3 > Server()->Tick())
+			if(Config()->m_SvSpamprotection && pPlayer->m_LastEmote && pPlayer->m_LastEmote+Server()->TickSpeed()*3 > Server()->Tick())
 				return;
 
-			pPlayer->m_LastEmoteTick = Server()->Tick();
+			pPlayer->m_LastEmote = Server()->Tick();
 
 			SendEmoticon(ClientID, pMsg->m_Emoticon);
 		}
 		else if (MsgID == NETMSGTYPE_CL_KILL && !m_World.m_Paused)
 		{
-			if(pPlayer->m_LastKillTick && pPlayer->m_LastKillTick+Server()->TickSpeed()*3 > Server()->Tick())
+			if(pPlayer->m_LastKill && pPlayer->m_LastKill+Server()->TickSpeed()*3 > Server()->Tick())
 				return;
 
-			pPlayer->m_LastKillTick = Server()->Tick();
+			pPlayer->m_LastKill = Server()->Tick();
 			pPlayer->KillCharacter(WEAPON_SELF);
 		}
 		else if (MsgID == NETMSGTYPE_CL_READYCHANGE)
 		{
-			if(pPlayer->m_LastReadyChangeTick && pPlayer->m_LastReadyChangeTick+Server()->TickSpeed()*1 > Server()->Tick())
+			if(pPlayer->m_LastReadyChange && pPlayer->m_LastReadyChange+Server()->TickSpeed()*1 > Server()->Tick())
 				return;
 
-			pPlayer->m_LastReadyChangeTick = Server()->Tick();
+			pPlayer->m_LastReadyChange = Server()->Tick();
 			m_pController->OnPlayerReadyChange(pPlayer);
 		}
 		else if(MsgID == NETMSGTYPE_CL_SKINCHANGE)
 		{
-			if(pPlayer->m_LastChangeInfoTick && pPlayer->m_LastChangeInfoTick+Server()->TickSpeed()*5 > Server()->Tick())
+			if(pPlayer->m_LastChangeInfo && pPlayer->m_LastChangeInfo+Server()->TickSpeed()*5 > Server()->Tick())
 				return;
 
-			pPlayer->m_LastChangeInfoTick = Server()->Tick();
+			pPlayer->m_LastChangeInfo = Server()->Tick();
 			CNetMsg_Cl_SkinChange *pMsg = (CNetMsg_Cl_SkinChange *)pRawMsg;
 
 			for(int p = 0; p < NUM_SKINPARTS; p++)
 			{
-				str_utf8_copy_num(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], sizeof(pPlayer->m_TeeInfos.m_aaSkinPartNames[p]), MAX_SKIN_LENGTH);
+				str_copy(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], 24);
 				pPlayer->m_TeeInfos.m_aUseCustomColors[p] = pMsg->m_aUseCustomColors[p];
 				pPlayer->m_TeeInfos.m_aSkinPartColors[p] = pMsg->m_aSkinPartColors[p];
 			}
@@ -1111,7 +1110,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 				return;
 
 			CNetMsg_Cl_StartInfo *pMsg = (CNetMsg_Cl_StartInfo *)pRawMsg;
-			pPlayer->m_LastChangeInfoTick = Server()->Tick();
+			pPlayer->m_LastChangeInfo = Server()->Tick();
 
 			// set start infos
 			Server()->SetClientName(ClientID, pMsg->m_pName);
@@ -1120,7 +1119,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			for(int p = 0; p < NUM_SKINPARTS; p++)
 			{
-				str_utf8_copy_num(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], sizeof(pPlayer->m_TeeInfos.m_aaSkinPartNames[p]), MAX_SKIN_LENGTH);
+				str_copy(pPlayer->m_TeeInfos.m_aaSkinPartNames[p], pMsg->m_apSkinPartNames[p], 24);
 				pPlayer->m_TeeInfos.m_aUseCustomColors[p] = pMsg->m_aUseCustomColors[p];
 				pPlayer->m_TeeInfos.m_aSkinPartColors[p] = pMsg->m_aSkinPartColors[p];
 			}
@@ -1164,63 +1163,26 @@ void CGameContext::ConTuneParam(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	const char *pParamName = pResult->GetString(0);
+	float NewValue = pResult->GetFloat(1);
 
-	char aBuf[256];
-	if(pResult->NumArguments() == 2)
+	if(pSelf->Tuning()->Set(pParamName, NewValue))
 	{
-		float NewValue = pResult->GetFloat(1);
-		if(pSelf->Tuning()->Set(pParamName, NewValue) && pSelf->Tuning()->Get(pParamName, &NewValue))
-		{
-			str_format(aBuf, sizeof(aBuf), "%s changed to %.2f", pParamName, NewValue);
-			pSelf->SendTuningParams(-1);
-		}
-		else
-		{
-			str_format(aBuf, sizeof(aBuf), "No such tuning parameter: %s", pParamName);
-		}
+		char aBuf[256];
+		str_format(aBuf, sizeof(aBuf), "%s changed to %.2f", pParamName, NewValue);
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", aBuf);
+		pSelf->SendTuningParams(-1);
 	}
 	else
-	{
-		float Value;
-		if(pSelf->Tuning()->Get(pParamName, &Value))
-		{
-			str_format(aBuf, sizeof(aBuf), "%s %.2f", pParamName, Value);
-		}
-		else
-		{
-			str_format(aBuf, sizeof(aBuf), "No such tuning parameter: %s", pParamName);
-		}
-	}
-	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", aBuf);
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", "No such tuning parameter");
 }
 
 void CGameContext::ConTuneReset(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	CTuningParams TuningParams;
-
-	if(pResult->NumArguments())
-	{
-		const char *pParamName = pResult->GetString(0);
-		float DefaultValue = 0.0f;
-		char aBuf[256];
-		if(TuningParams.Get(pParamName, &DefaultValue) && pSelf->Tuning()->Set(pParamName, DefaultValue))
-		{
-			str_format(aBuf, sizeof(aBuf), "%s reset to %.2f", pParamName, DefaultValue);
-			pSelf->SendTuningParams(-1);
-		}
-		else
-		{
-			str_format(aBuf, sizeof(aBuf), "No such tuning parameter: %s", pParamName);
-		}
-		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", aBuf);
-	}
-	else
-	{
-		*pSelf->Tuning() = TuningParams;
-		pSelf->SendTuningParams(-1);
-		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", "Tuning reset");
-	}
+	*pSelf->Tuning() = TuningParams;
+	pSelf->SendTuningParams(-1);
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", "Tuning reset");
 }
 
 void CGameContext::ConTunes(IConsole::IResult *pResult, void *pUserData)
@@ -1231,7 +1193,7 @@ void CGameContext::ConTunes(IConsole::IResult *pResult, void *pUserData)
 	{
 		float Value;
 		pSelf->Tuning()->Get(i, &Value);
-		str_format(aBuf, sizeof(aBuf), "%s %.2f", pSelf->Tuning()->GetName(i), Value);
+		str_format(aBuf, sizeof(aBuf), "%s %.2f", pSelf->Tuning()->m_apNames[i], Value);
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tuning", aBuf);
 	}
 }
@@ -1255,11 +1217,10 @@ void CGameContext::ConChangeMap(IConsole::IResult *pResult, void *pUserData)
 void CGameContext::ConRestart(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
-	int Seconds = pResult->NumArguments() ? clamp(pResult->GetInteger(0), -1, 1000) : 0;
-	if(Seconds < 0)
-		pSelf->m_pController->AbortWarmup();
+	if(pResult->NumArguments())
+		pSelf->m_pController->DoWarmup(clamp(pResult->GetInteger(0), -1, 1000));
 	else
-		pSelf->m_pController->DoWarmup(Seconds);
+		pSelf->m_pController->DoWarmup(0);
 }
 
 void CGameContext::ConSay(IConsole::IResult *pResult, void *pUserData)
@@ -1373,8 +1334,8 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 		return;
 	}
-
-	pDescription = str_skip_whitespaces_const(pDescription);
+	while(*pDescription == ' ')
+		pDescription++;
 	if(str_length(pDescription) >= VOTE_DESC_LENGTH || *pDescription == 0)
 	{
 		char aBuf[256];
@@ -1384,7 +1345,8 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 	}
 
 	// check for duplicate entry
-	for(CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst; pOption; pOption = pOption->m_pNext)
+	CVoteOptionServer *pOption = pSelf->m_pVoteOptionFirst;
+	while(pOption)
 	{
 		if(str_comp_nocase(pDescription, pOption->m_aDescription) == 0)
 		{
@@ -1393,13 +1355,14 @@ void CGameContext::ConAddVote(IConsole::IResult *pResult, void *pUserData)
 			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 			return;
 		}
+		pOption = pOption->m_pNext;
 	}
 
 	// add the option
 	++pSelf->m_NumVoteOptions;
 	int Len = str_length(pCommand);
 
-	CVoteOptionServer *pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
+	pOption = (CVoteOptionServer *)pSelf->m_pVoteOptionHeap->Allocate(sizeof(CVoteOptionServer) + Len);
 	pOption->m_pNext = 0;
 	pOption->m_pPrev = pSelf->m_pVoteOptionLast;
 	if(pOption->m_pPrev)
@@ -1507,9 +1470,9 @@ void CGameContext::ConVote(IConsole::IResult *pResult, void *pUserData)
 		return;
 
 	if(str_comp_nocase(pResult->GetString(0), "yes") == 0)
-		pSelf->m_VoteEnforce = VOTE_CHOICE_YES;
+		pSelf->m_VoteEnforce = CGameContext::VOTE_ENFORCE_YES;
 	else if(str_comp_nocase(pResult->GetString(0), "no") == 0)
-		pSelf->m_VoteEnforce = VOTE_CHOICE_NO;
+		pSelf->m_VoteEnforce = CGameContext::VOTE_ENFORCE_NO;
 	char aBuf[256];
 	str_format(aBuf, sizeof(aBuf), "forcing vote %s", pResult->GetString(0));
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
@@ -1552,13 +1515,13 @@ void CGameContext::OnConsoleInit()
 	m_pConfig = Kernel()->RequestInterface<IConfigManager>()->Values();
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
 
-	Console()->Register("tune", "s[tuning] ?i[value]", CFGFLAG_SERVER, ConTuneParam, this, "Tune variable to value or show current value");
-	Console()->Register("tune_reset", "?s[tuning]", CFGFLAG_SERVER, ConTuneReset, this, "Reset all or one tuning variable to default");
+	Console()->Register("tune", "s[tuning] i[value]", CFGFLAG_SERVER, ConTuneParam, this, "Tune variable to value");
+	Console()->Register("tune_reset", "", CFGFLAG_SERVER, ConTuneReset, this, "Reset all tuning variables to defaults");
 	Console()->Register("tunes", "", CFGFLAG_SERVER, ConTunes, this, "List all tuning variables and their values");
 
 	Console()->Register("pause", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConPause, this, "Pause/unpause game");
 	Console()->Register("change_map", "?r[map]", CFGFLAG_SERVER|CFGFLAG_STORE, ConChangeMap, this, "Change map");
-	Console()->Register("restart", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConRestart, this, "Restart in x seconds (-1 = abort)");
+	Console()->Register("restart", "?i[seconds]", CFGFLAG_SERVER|CFGFLAG_STORE, ConRestart, this, "Restart in x seconds (0 = abort)");
 	Console()->Register("say", "r[text]", CFGFLAG_SERVER, ConSay, this, "Say in chat");
 	Console()->Register("broadcast", "r[text]", CFGFLAG_SERVER, ConBroadcast, this, "Broadcast message");
 	Console()->Register("set_team", "i[id] i[team] ?i[delay]", CFGFLAG_SERVER, ConSetTeam, this, "Set team of player to team");
@@ -1592,7 +1555,6 @@ void CGameContext::OnInit()
 	m_pServer = Kernel()->RequestInterface<IServer>();
 	m_pConfig = Kernel()->RequestInterface<IConfigManager>()->Values();
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
-	m_pStorage = Kernel()->RequestInterface<IStorage>();
 	m_World.SetGameServer(this);
 	m_Events.SetGameServer(this);
 	m_CommandManager.Init(m_pConsole, this, NewCommandHook, RemoveCommandHook);

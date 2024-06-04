@@ -40,7 +40,7 @@ else:
 	# get name
 	osname = os.popen("uname").readline().strip().lower()
 	if osname == "darwin":
-		osname = "macos"
+		osname = "osx"
 
 	# get arch
 	machine = os.popen("uname -m").readline().strip().lower()

@@ -1,9 +1,4 @@
-/* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
-/* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#ifndef ENGINE_CLIENT_GRAPHICS_THREADED_H
-#define ENGINE_CLIENT_GRAPHICS_THREADED_H
-
-#include <stdint.h>
+#pragma once
 
 #include <engine/graphics.h>
 
@@ -35,14 +30,12 @@ class CCommandBuffer
 			m_Used = 0;
 		}
 
-		void *Alloc(unsigned Requested, unsigned Alignment = 8) // TODO: use alignof(std::max_align_t)
+		void *Alloc(unsigned Requested)
 		{
-			size_t Offset = Alignment - (reinterpret_cast<uintptr_t>(m_pData + m_Used) % Alignment);
-			if(Requested + Offset + m_Used > m_Size)
+			if(Requested + m_Used > m_Size)
 				return 0;
-
-			void *pPtr = &m_pData[m_Used + Offset];
-			m_Used += Requested + Offset;
+			void *pPtr = &m_pData[m_Used];
+			m_Used += Requested;
 			return pPtr;
 		}
 
@@ -91,6 +84,7 @@ public:
 		// misc
 		CMD_VSYNC,
 		CMD_SCREENSHOT,
+		CMD_VIDEOMODES,
 
 	};
 
@@ -138,13 +132,10 @@ public:
 	struct CCommand
 	{
 	public:
-		CCommand(unsigned Cmd) :
-			m_Cmd(Cmd), m_pNext(0) {}
+		CCommand(unsigned Cmd) : m_Cmd(Cmd), m_Size(0) {}
 		unsigned m_Cmd;
-		CCommand *m_pNext;
+		unsigned m_Size;
 	};
-	CCommand *m_pCmdBufferHead;
-	CCommand *m_pCmdBufferTail;
 
 	struct CState
 	{
@@ -197,6 +188,16 @@ public:
 		CScreenshotCommand() : CCommand(CMD_SCREENSHOT) {}
 		int m_X, m_Y, m_W, m_H; // specify rectangle size, -1 if fullscreen (width/height)
 		CImageInfo *m_pImage; // processor will fill this out, the one who adds this command must free the data as well
+	};
+
+	struct CVideoModesCommand : public CCommand
+	{
+		CVideoModesCommand() : CCommand(CMD_VIDEOMODES) {}
+
+		CVideoMode *m_pModes; // processor will fill this in
+		int m_MaxModes; // maximum of modes the processor can write to the m_pModes
+		int *m_pNumModes; // processor will write to this pointer
+		int m_Screen;
 	};
 
 	struct CSwapCommand : public CCommand
@@ -255,8 +256,8 @@ public:
 	};
 
 	//
-	CCommandBuffer(unsigned CmdBufferSize, unsigned DataBufferSize) :
-		m_CmdBuffer(CmdBufferSize), m_DataBuffer(DataBufferSize), m_pCmdBufferHead(0), m_pCmdBufferTail(0)
+	CCommandBuffer(unsigned CmdBufferSize, unsigned DataBufferSize)
+	: m_CmdBuffer(CmdBufferSize), m_DataBuffer(DataBufferSize)
 	{
 	}
 
@@ -272,29 +273,26 @@ public:
 		(void)static_cast<const CCommand *>(&Command);
 
 		// allocate and copy the command into the buffer
-		T *pCmd = (T *)m_CmdBuffer.Alloc(sizeof(*pCmd), 8); // TODO: use alignof(T)
+		CCommand *pCmd = (CCommand *)m_CmdBuffer.Alloc(sizeof(Command));
 		if(!pCmd)
 			return false;
-		*pCmd = Command;
-		pCmd->m_pNext = 0;
-
-		if(m_pCmdBufferTail)
-			m_pCmdBufferTail->m_pNext = pCmd;
-		if(!m_pCmdBufferHead)
-			m_pCmdBufferHead = pCmd;
-		m_pCmdBufferTail = pCmd;
-
+		mem_copy(pCmd, &Command, sizeof(Command));
+		pCmd->m_Size = sizeof(Command);
 		return true;
 	}
 
-	CCommand *Head()
+	CCommand *GetCommand(unsigned *pIndex)
 	{
-		return m_pCmdBufferHead;
+		if(*pIndex >= m_CmdBuffer.DataUsed())
+			return NULL;
+
+		CCommand *pCommand = (CCommand *)&m_CmdBuffer.DataPtr()[*pIndex];
+		*pIndex += pCommand->m_Size;
+		return pCommand;
 	}
 
 	void Reset()
 	{
-		m_pCmdBufferHead = m_pCmdBufferTail = 0;
 		m_CmdBuffer.Reset();
 		m_DataBuffer.Reset();
 	}
@@ -330,7 +328,6 @@ public:
 	virtual bool Fullscreen(bool State) = 0;
 	virtual void SetWindowBordered(bool State) = 0;
 	virtual bool SetWindowScreen(int Index) = 0;
-	virtual int GetVideoModes(CVideoMode *pModes, int MaxModes, int Screen) = 0;
 	virtual bool GetDesktopResolution(int Index, int *pDesktopWidth, int* pDesktopHeight) = 0;
 	virtual int GetWindowScreen() = 0;
 	virtual int WindowActive() = 0;
@@ -417,7 +414,7 @@ public:
 	virtual void LinesEnd();
 	virtual void LinesDraw(const CLineItem *pArray, int Num);
 
-	virtual int UnloadTexture(IGraphics::CTextureHandle *pIndex);
+	virtual int UnloadTexture(IGraphics::CTextureHandle *Index);
 	virtual IGraphics::CTextureHandle LoadTextureRaw(int Width, int Height, int Format, const void *pData, int StoreFormat, int Flags);
 	virtual int LoadTextureRawSub(IGraphics::CTextureHandle TextureID, int x, int y, int Width, int Height, int Format, const void *pData);
 
@@ -437,7 +434,7 @@ public:
 
 	virtual void SetColorVertex(const CColorVertex *pArray, int Num);
 	virtual void SetColor(float r, float g, float b, float a);
-	virtual void SetColor4(const vec4 &TopLeft, const vec4 &TopRight, const vec4 &BottomLeft, const vec4 &BottomRight);
+	virtual void SetColor4(vec4 TopLeft, vec4 TopRight, vec4 BottomLeft, vec4 BottomRight);
 
 	void TilesetFallbackSystem(int TextureIndex);
 	virtual void QuadsSetSubset(float TlU, float TlV, float BrU, float BrV, int TextureIndex = -1);
@@ -478,5 +475,3 @@ public:
 };
 
 extern IGraphicsBackend *CreateGraphicsBackend();
-
-#endif // ENGINE_CLIENT_GRAPHICS_THREADED_H

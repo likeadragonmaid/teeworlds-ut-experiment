@@ -11,7 +11,7 @@
 	public: \
 	void *operator new(size_t Size) \
 	{ \
-		void *p = mem_alloc(Size); \
+		void *p = mem_alloc(Size, 1); \
 		/*dbg_msg("", "++ %p %d", p, size);*/ \
 		mem_zero(p, Size); \
 		return p; \

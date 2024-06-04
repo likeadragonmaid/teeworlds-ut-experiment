@@ -27,7 +27,7 @@ CJsonWriter::CJsonWriter(IOHANDLE IO)
 
 CJsonWriter::~CJsonWriter()
 {
-	io_write_newline(m_IO);
+	WriteInternal("\n");
 	io_close(m_IO);
 }
 

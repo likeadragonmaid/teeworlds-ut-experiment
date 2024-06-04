@@ -63,7 +63,7 @@ bool CServerBrowserFavorites::AddFavoriteEx(const char *pHostname, const NETADDR
 			return false;
 
 		// check if hostname does not match given address
-		if(DoCheck && net_addr_comp(&m_aFavoriteServers[m_NumFavoriteServers].m_Addr, pAddr, true) != 0)
+		if(DoCheck && net_addr_comp(&m_aFavoriteServers[m_NumFavoriteServers].m_Addr, pAddr) != 0)
 			return false;
 
 		// add the server to the list
@@ -106,7 +106,7 @@ CServerBrowserFavorites::CFavoriteServer *CServerBrowserFavorites::FindFavoriteB
 {
 	for(int i = 0; i < m_NumFavoriteServers; i++)
 	{
-		if(m_aFavoriteServers[i].m_State >= FAVSTATE_ADDR && net_addr_comp(&Addr, &m_aFavoriteServers[i].m_Addr, true) == 0)
+		if(m_aFavoriteServers[i].m_State >= FAVSTATE_ADDR && net_addr_comp(&Addr, &m_aFavoriteServers[i].m_Addr) == 0)
 		{
 			if(Index)
 				*Index = i;
@@ -173,10 +173,10 @@ const NETADDR *CServerBrowserFavorites::UpdateFavorites()
 {
 	NETADDR *pResult = 0;
 
-	// check if hostname lookup for favorites is done
+	// check if hostname lookup for favourites is done
 	if(m_FavLookup.m_Active && m_FavLookup.m_HostLookup.m_Job.Status() == CJob::STATE_DONE)
 	{
-		// check if favorite has not been removed in the meanwhile
+		// check if favourite has not been removed in the meanwhile
 		if(m_FavLookup.m_FavoriteIndex != -1)
 		{
 			if(m_FavLookup.m_HostLookup.m_Job.Result() == 0)
@@ -196,7 +196,7 @@ const NETADDR *CServerBrowserFavorites::UpdateFavorites()
 				{
 					// address wasn't in the list yet -> add it (optional check if hostname matches given address -> drop entry on fail)
 					if(m_aFavoriteServers[m_FavLookup.m_FavoriteIndex].m_State == FAVSTATE_LOOKUP ||
-						net_addr_comp(&m_aFavoriteServers[m_NumFavoriteServers].m_Addr, &m_FavLookup.m_HostLookup.m_Addr, true) == 0)
+						net_addr_comp(&m_aFavoriteServers[m_NumFavoriteServers].m_Addr, &m_FavLookup.m_HostLookup.m_Addr) == 0)
 					{
 						m_aFavoriteServers[m_FavLookup.m_FavoriteIndex].m_Addr = m_FavLookup.m_HostLookup.m_Addr;
 						m_aFavoriteServers[m_FavLookup.m_FavoriteIndex].m_State = FAVSTATE_HOST;
@@ -224,7 +224,7 @@ const NETADDR *CServerBrowserFavorites::UpdateFavorites()
 		m_FavLookup.m_Active = false;
 	}
 
-	// add hostname lookup for favorites
+	// add hostname lookup for favourites
 	if(m_FavLookup.m_LookupCount > 0 && !m_FavLookup.m_Active)
 	{
 		for(int i = 0; i < m_NumFavoriteServers; i++)

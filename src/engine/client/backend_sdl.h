@@ -1,11 +1,8 @@
-/* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
-/* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#ifndef ENGINE_CLIENT_BACKEND_SDL_H
-#define ENGINE_CLIENT_BACKEND_SDL_H
+#pragma once
 
 #include "graphics_threaded.h"
 
-#if defined(CONF_PLATFORM_MACOS)
+#if defined(CONF_PLATFORM_MACOSX)
 	#include <objc/objc-runtime.h>
 
 	class semaphore
@@ -174,6 +171,7 @@ private:
 	void Cmd_Shutdown(const CShutdownCommand *pCommand);
 	void Cmd_Swap(const CCommandBuffer::CSwapCommand *pCommand);
 	void Cmd_VSync(const CCommandBuffer::CVSyncCommand *pCommand);
+	void Cmd_VideoModes(const CCommandBuffer::CVideoModesCommand *pCommand);
 public:
 	CCommandProcessorFragment_SDL();
 
@@ -214,10 +212,7 @@ public:
 	virtual void SetWindowBordered(bool State);	// on=true/off=false
 	virtual bool SetWindowScreen(int Index);
 	virtual int GetWindowScreen();
-	virtual int GetVideoModes(CVideoMode *pModes, int MaxModes, int Screen);
 	virtual bool GetDesktopResolution(int Index, int *pDesktopWidth, int* pDesktopHeight);
 	virtual int WindowActive();
 	virtual int WindowOpen();
 };
-
-#endif // ENGINE_CLIENT_BACKEND_SDL_H
